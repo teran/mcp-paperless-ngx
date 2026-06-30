@@ -30,11 +30,19 @@ func (m *mockDocRepo) GetByID(ctx context.Context, id int) (*domain.Document, er
 
 // mockCorrespondentRepo implements domain.CorrespondentRepository for testing.
 type mockCorrespondentRepo struct {
-	searchFn func(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error)
+	searchFn  func(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error)
+	getByIDFn func(ctx context.Context, id int) (*domain.Correspondent, error)
 }
 
 func (m *mockCorrespondentRepo) Search(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error) {
 	return m.searchFn(ctx, query, page, pageSize)
+}
+
+func (m *mockCorrespondentRepo) GetByID(ctx context.Context, id int) (*domain.Correspondent, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, id)
+	}
+	return nil, errMock
 }
 
 // mockTagRepo implements domain.TagRepository for testing.

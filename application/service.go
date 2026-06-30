@@ -108,6 +108,15 @@ func (s *CorrespondentService) Search(ctx context.Context, query string, page, p
 	return result, nil
 }
 
+// GetByID retrieves a single correspondent by its ID.
+func (s *CorrespondentService) GetByID(ctx context.Context, id int) (*domain.Correspondent, error) {
+	result, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get correspondent: %w", err)
+	}
+	return result, nil
+}
+
 // TagService implements tag-related use cases.
 type TagService struct {
 	repo domain.TagRepository

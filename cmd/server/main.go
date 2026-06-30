@@ -120,14 +120,14 @@ func registerTools(s *mcp.Server) {
 		Name:        "search_documents",
 		Description: "Search documents with filters (query, correspondent, tags, date range).",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.SearchDocumentsInput) (*mcp.CallToolResult, handlers.SearchDocumentsOutput, error) {
-		return handlers.NewSearchDocumentsHandler(docServiceFromContext(ctx))(ctx, nil, in)
+		return handlers.NewSearchDocumentsHandler(docServiceFromContext(ctx), corrServiceFromContext(ctx))(ctx, nil, in)
 	})
 
 	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
 		Name:        "get_document_content",
 		Description: "Get full OCR text and metadata of a document.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.GetDocumentContentInput) (*mcp.CallToolResult, handlers.DocumentDetail, error) {
-		return handlers.NewGetDocumentContentHandler(docServiceFromContext(ctx))(ctx, nil, in)
+		return handlers.NewGetDocumentContentHandler(docServiceFromContext(ctx), corrServiceFromContext(ctx))(ctx, nil, in)
 	})
 
 	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
@@ -141,7 +141,7 @@ func registerTools(s *mcp.Server) {
 		Name:        "get_documents_by_correspondent",
 		Description: "List documents for a correspondent.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.GetDocumentsByCorrespondentInput) (*mcp.CallToolResult, handlers.SearchDocumentsOutput, error) {
-		return handlers.NewGetDocumentsByCorrespondentHandler(docServiceFromContext(ctx))(ctx, nil, in)
+		return handlers.NewGetDocumentsByCorrespondentHandler(docServiceFromContext(ctx), corrServiceFromContext(ctx))(ctx, nil, in)
 	})
 
 	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
@@ -155,14 +155,14 @@ func registerTools(s *mcp.Server) {
 		Name:        "get_documents_by_tag",
 		Description: "List documents for a tag.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.GetDocumentsByTagInput) (*mcp.CallToolResult, handlers.SearchDocumentsOutput, error) {
-		return handlers.NewGetDocumentsByTagHandler(docServiceFromContext(ctx))(ctx, nil, in)
+		return handlers.NewGetDocumentsByTagHandler(docServiceFromContext(ctx), corrServiceFromContext(ctx))(ctx, nil, in)
 	})
 
 	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
 		Name:        "fulltext_search",
 		Description: "Full-text search across all documents.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.FulltextSearchInput) (*mcp.CallToolResult, handlers.FulltextSearchOutput, error) {
-		return handlers.NewFulltextSearchHandler(docServiceFromContext(ctx))(ctx, nil, in)
+		return handlers.NewFulltextSearchHandler(docServiceFromContext(ctx), corrServiceFromContext(ctx))(ctx, nil, in)
 	})
 }
 

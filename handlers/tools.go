@@ -27,14 +27,15 @@ type SearchDocumentsInput struct {
 }
 
 type DocumentSummary struct {
-	ID            int    `json:"id"`
-	Title         string `json:"title"`
-	Correspondent *int   `json:"correspondent,omitempty"`
-	Tags          []int  `json:"tags,omitempty"`
-	Created       string `json:"created"`
-	MimeType      string `json:"mime_type"`
-	ArchiveSerial *int   `json:"archive_serial_number,omitempty"`
-	PageCount     *int   `json:"page_count,omitempty"`
+	ID                int    `json:"id"`
+	Title             string `json:"title"`
+	Correspondent     *int   `json:"correspondent,omitempty"`
+	CorrespondentName string `json:"correspondent_name,omitempty"`
+	Tags              []int  `json:"tags,omitempty"`
+	Created           string `json:"created"`
+	MimeType          string `json:"mime_type"`
+	ArchiveSerial     *int   `json:"archive_serial_number,omitempty"`
+	PageCount         *int   `json:"page_count,omitempty"`
 }
 
 type SearchDocumentsOutput struct {
@@ -54,6 +55,7 @@ type DocumentDetail struct {
 	Title               string `json:"title"`
 	Content             string `json:"content"`
 	Correspondent       *int   `json:"correspondent,omitempty"`
+	CorrespondentName   string `json:"correspondent_name,omitempty"`
 	DocumentType        *int   `json:"document_type,omitempty"`
 	Tags                []int  `json:"tags,omitempty"`
 	Created             string `json:"created"`
@@ -133,12 +135,13 @@ type FulltextSearchInput struct {
 }
 
 type FulltextSearchResultItem struct {
-	ID            int    `json:"id"`
-	Title         string `json:"title"`
-	Correspondent *int   `json:"correspondent,omitempty"`
-	Tags          []int  `json:"tags,omitempty"`
-	Created       string `json:"created"`
-	Highlights    string `json:"highlights,omitempty"`
+	ID                int    `json:"id"`
+	Title             string `json:"title"`
+	Correspondent     *int   `json:"correspondent,omitempty"`
+	CorrespondentName string `json:"correspondent_name,omitempty"`
+	Tags              []int  `json:"tags,omitempty"`
+	Created           string `json:"created"`
+	Highlights        string `json:"highlights,omitempty"`
 }
 
 type FulltextSearchOutput struct {
@@ -161,10 +164,10 @@ func normalizePagination(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
-func toDocumentSummaries(docs []domain.Document) []DocumentSummary {
+func toDocumentSummaries(docs []domain.Document, corrNames map[int]string) []DocumentSummary {
 	result := make([]DocumentSummary, 0, len(docs))
 	for _, doc := range docs {
-		result = append(result, DocumentSummary{
+		summary := DocumentSummary{
 			ID:            doc.ID,
 			Title:         doc.Title,
 			Correspondent: doc.Correspondent,
@@ -173,9 +176,34 @@ func toDocumentSummaries(docs []domain.Document) []DocumentSummary {
 			MimeType:      doc.MimeType,
 			ArchiveSerial: doc.ArchiveSerialNumber,
 			PageCount:     doc.PageCount,
-		})
+		}
+		if doc.Correspondent != nil {
+			summary.CorrespondentName = corrNames[*doc.Correspondent]
+		}
+		result = append(result, summary)
 	}
 	return result
+}
+
+// resolveCorrespondentNames fetches names for all unique correspondent IDs
+// present in the documents and returns a map of ID → name.
+func resolveCorrespondentNames(ctx context.Context, corrSvc *application.CorrespondentService, docs []domain.Document) map[int]string {
+	ids := make(map[int]struct{})
+	for _, doc := range docs {
+		if doc.Correspondent != nil {
+			ids[*doc.Correspondent] = struct{}{}
+		}
+	}
+
+	names := make(map[int]string, len(ids))
+	for id := range ids {
+		corr, err := corrSvc.GetByID(ctx, id)
+		if err == nil && corr != nil {
+			names[id] = corr.Name
+		}
+	}
+
+	return names
 }
 
 // ============================================================
@@ -183,7 +211,7 @@ func toDocumentSummaries(docs []domain.Document) []DocumentSummary {
 // ============================================================
 
 // NewSearchDocumentsHandler creates a handler for search_documents.
-func NewSearchDocumentsHandler(svc *application.DocumentService) mcp.ToolHandlerFor[SearchDocumentsInput, SearchDocumentsOutput] {
+func NewSearchDocumentsHandler(svc *application.DocumentService, corrSvc *application.CorrespondentService) mcp.ToolHandlerFor[SearchDocumentsInput, SearchDocumentsOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input SearchDocumentsInput) (*mcp.CallToolResult, SearchDocumentsOutput, error) {
 		page, pageSize := normalizePagination(input.Page, input.PageSize)
 
@@ -200,20 +228,29 @@ func NewSearchDocumentsHandler(svc *application.DocumentService) mcp.ToolHandler
 			return nil, SearchDocumentsOutput{}, fmt.Errorf("search documents: %w", err)
 		}
 
+		corrNames := resolveCorrespondentNames(ctx, corrSvc, result.Results)
+
 		return nil, SearchDocumentsOutput{
 			Total:   result.Total,
 			Page:    page,
-			Results: toDocumentSummaries(result.Results),
+			Results: toDocumentSummaries(result.Results, corrNames),
 		}, nil
 	}
 }
 
 // NewGetDocumentContentHandler creates a handler for get_document_content.
-func NewGetDocumentContentHandler(svc *application.DocumentService) mcp.ToolHandlerFor[GetDocumentContentInput, DocumentDetail] {
+func NewGetDocumentContentHandler(svc *application.DocumentService, corrSvc *application.CorrespondentService) mcp.ToolHandlerFor[GetDocumentContentInput, DocumentDetail] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input GetDocumentContentInput) (*mcp.CallToolResult, DocumentDetail, error) {
 		doc, err := svc.GetByID(ctx, input.DocumentID)
 		if err != nil {
 			return nil, DocumentDetail{}, fmt.Errorf("get document content: %w", err)
+		}
+
+		corrName := ""
+		if doc.Correspondent != nil {
+			if corr, err := corrSvc.GetByID(ctx, *doc.Correspondent); err == nil && corr != nil {
+				corrName = corr.Name
+			}
 		}
 
 		return nil, DocumentDetail{
@@ -221,6 +258,7 @@ func NewGetDocumentContentHandler(svc *application.DocumentService) mcp.ToolHand
 			Title:               doc.Title,
 			Content:             doc.Content,
 			Correspondent:       doc.Correspondent,
+			CorrespondentName:   corrName,
 			DocumentType:        doc.DocumentType,
 			Tags:                doc.Tags,
 			Created:             doc.Created,
@@ -263,7 +301,7 @@ func NewSearchCorrespondentsHandler(svc *application.CorrespondentService) mcp.T
 }
 
 // NewGetDocumentsByCorrespondentHandler creates a handler for get_documents_by_correspondent.
-func NewGetDocumentsByCorrespondentHandler(svc *application.DocumentService) mcp.ToolHandlerFor[GetDocumentsByCorrespondentInput, SearchDocumentsOutput] {
+func NewGetDocumentsByCorrespondentHandler(svc *application.DocumentService, corrSvc *application.CorrespondentService) mcp.ToolHandlerFor[GetDocumentsByCorrespondentInput, SearchDocumentsOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input GetDocumentsByCorrespondentInput) (*mcp.CallToolResult, SearchDocumentsOutput, error) {
 		page, pageSize := normalizePagination(input.Page, input.PageSize)
 
@@ -272,10 +310,12 @@ func NewGetDocumentsByCorrespondentHandler(svc *application.DocumentService) mcp
 			return nil, SearchDocumentsOutput{}, fmt.Errorf("get documents by correspondent: %w", err)
 		}
 
+		corrNames := resolveCorrespondentNames(ctx, corrSvc, result.Results)
+
 		return nil, SearchDocumentsOutput{
 			Total:   result.Total,
 			Page:    page,
-			Results: toDocumentSummaries(result.Results),
+			Results: toDocumentSummaries(result.Results, corrNames),
 		}, nil
 	}
 }
@@ -310,7 +350,7 @@ func NewListTagsHandler(svc *application.TagService) mcp.ToolHandlerFor[ListTags
 }
 
 // NewGetDocumentsByTagHandler creates a handler for get_documents_by_tag.
-func NewGetDocumentsByTagHandler(svc *application.DocumentService) mcp.ToolHandlerFor[GetDocumentsByTagInput, SearchDocumentsOutput] {
+func NewGetDocumentsByTagHandler(svc *application.DocumentService, corrSvc *application.CorrespondentService) mcp.ToolHandlerFor[GetDocumentsByTagInput, SearchDocumentsOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input GetDocumentsByTagInput) (*mcp.CallToolResult, SearchDocumentsOutput, error) {
 		page, pageSize := normalizePagination(input.Page, input.PageSize)
 
@@ -319,16 +359,18 @@ func NewGetDocumentsByTagHandler(svc *application.DocumentService) mcp.ToolHandl
 			return nil, SearchDocumentsOutput{}, fmt.Errorf("get documents by tag: %w", err)
 		}
 
+		corrNames := resolveCorrespondentNames(ctx, corrSvc, result.Results)
+
 		return nil, SearchDocumentsOutput{
 			Total:   result.Total,
 			Page:    page,
-			Results: toDocumentSummaries(result.Results),
+			Results: toDocumentSummaries(result.Results, corrNames),
 		}, nil
 	}
 }
 
 // NewFulltextSearchHandler creates a handler for fulltext_search.
-func NewFulltextSearchHandler(svc *application.DocumentService) mcp.ToolHandlerFor[FulltextSearchInput, FulltextSearchOutput] {
+func NewFulltextSearchHandler(svc *application.DocumentService, corrSvc *application.CorrespondentService) mcp.ToolHandlerFor[FulltextSearchInput, FulltextSearchOutput] {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input FulltextSearchInput) (*mcp.CallToolResult, FulltextSearchOutput, error) {
 		page, pageSize := normalizePagination(input.Page, input.PageSize)
 
@@ -337,15 +379,18 @@ func NewFulltextSearchHandler(svc *application.DocumentService) mcp.ToolHandlerF
 			return nil, FulltextSearchOutput{}, fmt.Errorf("fulltext search: %w", err)
 		}
 
+		corrNames := resolveCorrespondentNames(ctx, corrSvc, result.Results)
+
 		items := make([]FulltextSearchResultItem, 0, len(result.Results))
 		for _, doc := range result.Results {
 			item := FulltextSearchResultItem{
-				ID:            doc.ID,
-				Title:         doc.Title,
-				Correspondent: doc.Correspondent,
-				Tags:          doc.Tags,
-				Created:       doc.Created,
-				Highlights:    "",
+				ID:                doc.ID,
+				Title:             doc.Title,
+				Correspondent:     doc.Correspondent,
+				CorrespondentName: corrNames[*doc.Correspondent],
+				Tags:              doc.Tags,
+				Created:           doc.Created,
+				Highlights:        "",
 			}
 			if doc.SearchHit != nil {
 				item.Highlights = doc.SearchHit.Highlights

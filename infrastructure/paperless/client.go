@@ -76,6 +76,23 @@ func (c *Client) GetByID(ctx context.Context, id int) (*domain.Document, error) 
 	return &doc, nil
 }
 
+// GetCorrespondentByID fetches a single correspondent by ID.
+func (c *Client) GetCorrespondentByID(ctx context.Context, id int) (*domain.Correspondent, error) {
+	path := fmt.Sprintf("/api/correspondents/%d/", id)
+	body, err := c.doRequest(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var raw rawCorrespondent
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("unmarshal correspondent: %w", err)
+	}
+
+	corr := raw.toDomain()
+	return &corr, nil
+}
+
 // SearchCorrespondents searches correspondents by name query.
 func (c *Client) SearchCorrespondents(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error) {
 	return fetchPaginated(ctx, c, "/api/correspondents/", query, page, pageSize,
@@ -154,6 +171,11 @@ func NewCorrespondentRepo(client *Client) *CorrespondentRepo {
 // Search implements domain.CorrespondentRepository.
 func (r *CorrespondentRepo) Search(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error) {
 	return r.client.SearchCorrespondents(ctx, query, page, pageSize)
+}
+
+// GetByID implements domain.CorrespondentRepository.
+func (r *CorrespondentRepo) GetByID(ctx context.Context, id int) (*domain.Correspondent, error) {
+	return r.client.GetCorrespondentByID(ctx, id)
 }
 
 // TagRepo adapts Client to domain.TagRepository.

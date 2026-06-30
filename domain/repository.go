@@ -11,6 +11,7 @@ type DocumentRepository interface {
 // CorrespondentRepository defines the interface for correspondent persistence.
 type CorrespondentRepository interface {
 	Search(ctx context.Context, query string, page, pageSize int) (*PaginatedResult[Correspondent], error)
+	GetByID(ctx context.Context, id int) (*Correspondent, error)
 }
 
 // TagRepository defines the interface for tag persistence.
