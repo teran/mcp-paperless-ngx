@@ -70,6 +70,18 @@ type rawPaginatedCorrespondents struct {
 	Results []rawCorrespondent `json:"results"`
 }
 
+type rawDocumentType struct {
+	ID                int    `json:"id"`
+	Slug              string `json:"slug"`
+	Name              string `json:"name"`
+	Match             string `json:"match"`
+	MatchingAlgorithm int    `json:"matching_algorithm"`
+	IsInsensitive     bool   `json:"is_insensitive"`
+	DocumentCount     int    `json:"document_count"`
+	Owner             *int   `json:"owner"`
+	UserCanChange     bool   `json:"user_can_change"`
+}
+
 type rawPaginatedTags struct {
 	Count   int      `json:"count"`
 	Results []rawTag `json:"results"`
@@ -121,6 +133,20 @@ func (r rawCorrespondent) toDomain() domain.Correspondent {
 		LastCorrespondence: r.LastCorrespondence,
 		Owner:              r.Owner,
 		UserCanChange:      r.UserCanChange,
+	}
+}
+
+func (r rawDocumentType) toDomain() domain.DocumentType {
+	return domain.DocumentType{
+		ID:                r.ID,
+		Slug:              r.Slug,
+		Name:              r.Name,
+		Match:             r.Match,
+		MatchingAlgorithm: r.MatchingAlgorithm,
+		IsInsensitive:     r.IsInsensitive,
+		DocumentCount:     r.DocumentCount,
+		Owner:             r.Owner,
+		UserCanChange:     r.UserCanChange,
 	}
 }
 

@@ -117,6 +117,25 @@ func (s *CorrespondentService) GetByID(ctx context.Context, id int) (*domain.Cor
 	return result, nil
 }
 
+// DocumentTypeService implements document-type-related use cases.
+type DocumentTypeService struct {
+	repo domain.DocumentTypeRepository
+}
+
+// NewDocumentTypeService creates a new DocumentTypeService.
+func NewDocumentTypeService(repo domain.DocumentTypeRepository) *DocumentTypeService {
+	return &DocumentTypeService{repo: repo}
+}
+
+// GetByID retrieves a single document type by its ID.
+func (s *DocumentTypeService) GetByID(ctx context.Context, id int) (*domain.DocumentType, error) {
+	result, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get document type: %w", err)
+	}
+	return result, nil
+}
+
 // TagService implements tag-related use cases.
 type TagService struct {
 	repo domain.TagRepository

@@ -109,6 +109,23 @@ func (c *Client) SearchCorrespondents(ctx context.Context, query string, page, p
 		})
 }
 
+// GetDocumentTypeByID fetches a single document type by ID.
+func (c *Client) GetDocumentTypeByID(ctx context.Context, id int) (*domain.DocumentType, error) {
+	path := fmt.Sprintf("/api/document_types/%d/", id)
+	body, err := c.doRequest(ctx, path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var raw rawDocumentType
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("unmarshal document type: %w", err)
+	}
+
+	dt := raw.toDomain()
+	return &dt, nil
+}
+
 // ListTags lists all tags, optionally filtered by name.
 func (c *Client) ListTags(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Tag], error) {
 	return fetchPaginated(ctx, c, "/api/tags/", query, page, pageSize,
@@ -176,6 +193,21 @@ func (r *CorrespondentRepo) Search(ctx context.Context, query string, page, page
 // GetByID implements domain.CorrespondentRepository.
 func (r *CorrespondentRepo) GetByID(ctx context.Context, id int) (*domain.Correspondent, error) {
 	return r.client.GetCorrespondentByID(ctx, id)
+}
+
+// DocumentTypeRepo adapts Client to domain.DocumentTypeRepository.
+type DocumentTypeRepo struct {
+	client *Client
+}
+
+// NewDocumentTypeRepo creates a new DocumentTypeRepo.
+func NewDocumentTypeRepo(client *Client) *DocumentTypeRepo {
+	return &DocumentTypeRepo{client: client}
+}
+
+// GetByID implements domain.DocumentTypeRepository.
+func (r *DocumentTypeRepo) GetByID(ctx context.Context, id int) (*domain.DocumentType, error) {
+	return r.client.GetDocumentTypeByID(ctx, id)
 }
 
 // TagRepo adapts Client to domain.TagRepository.

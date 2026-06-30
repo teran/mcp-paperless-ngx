@@ -27,6 +27,12 @@ func (m *mockDocRepo) GetByID(ctx context.Context, id int) (*domain.Document, er
 	return m.getByIDFn(ctx, id)
 }
 
+type mockDocTypeRepo struct{}
+
+func (m *mockDocTypeRepo) GetByID(_ context.Context, id int) (*domain.DocumentType, error) {
+	return &domain.DocumentType{ID: id, Name: "Document Type"}, nil //nolint:exhaustruct
+}
+
 type mockCorrespondentRepo struct {
 	searchFn  func(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error)
 	getByIDFn func(ctx context.Context, id int) (*domain.Correspondent, error)
@@ -57,6 +63,10 @@ func (m *mockTagRepo) List(ctx context.Context, query string, page, pageSize int
 
 func newTestCorrSvc() *application.CorrespondentService {
 	return application.NewCorrespondentService(&mockCorrespondentRepo{}) //nolint:exhaustruct
+}
+
+func newTestDocTypeSvc() *application.DocumentTypeService {
+	return application.NewDocumentTypeService(&mockDocTypeRepo{})
 }
 
 func ctx() context.Context {
@@ -194,7 +204,7 @@ func TestToDocumentSummaries(t *testing.T) {
 			},
 		}
 
-		summaries := toDocumentSummaries(docs, nil)
+		summaries := toDocumentSummaries(docs, nil, nil)
 
 		if len(summaries) != 2 {
 			t.Fatalf("expected 2 summaries, got %d", len(summaries))
@@ -234,7 +244,7 @@ func TestToDocumentSummaries(t *testing.T) {
 	t.Run("nil input returns empty slice", func(t *testing.T) {
 		t.Parallel()
 
-		summaries := toDocumentSummaries(nil, nil)
+		summaries := toDocumentSummaries(nil, nil, nil)
 		if summaries == nil {
 			t.Errorf("expected non-nil empty slice, got nil")
 		}
@@ -246,7 +256,7 @@ func TestToDocumentSummaries(t *testing.T) {
 	t.Run("empty input returns empty slice", func(t *testing.T) {
 		t.Parallel()
 
-		summaries := toDocumentSummaries([]domain.Document{}, nil)
+		summaries := toDocumentSummaries([]domain.Document{}, nil, nil)
 		if summaries == nil {
 			t.Errorf("expected non-nil empty slice, got nil")
 		}
@@ -278,7 +288,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc())
+		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, SearchDocumentsInput{}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -327,7 +337,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc())
+		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, SearchDocumentsInput{
 			Query:           "invoice",
 			CorrespondentID: 5,
@@ -369,7 +379,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc())
+		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, SearchDocumentsInput{Page: 0, PageSize: 0}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -388,7 +398,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc())
+		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, SearchDocumentsInput{Query: "nonexistent"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -410,7 +420,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc())
+		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, _, err := handler(ctx(), nil, SearchDocumentsInput{Query: "fail"}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -432,7 +442,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc())
+		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, SearchDocumentsInput{}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -498,7 +508,7 @@ func TestNewGetDocumentContentHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentContentHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentContentHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, GetDocumentContentInput{DocumentID: 1})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -553,7 +563,7 @@ func TestNewGetDocumentContentHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentContentHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentContentHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, _, err := handler(ctx(), nil, GetDocumentContentInput{DocumentID: 999})
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -572,7 +582,7 @@ func TestNewGetDocumentContentHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentContentHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentContentHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, _, err := handler(ctx(), nil, GetDocumentContentInput{DocumentID: 1})
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -597,7 +607,7 @@ func TestNewGetDocumentContentHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentContentHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentContentHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, GetDocumentContentInput{DocumentID: 99})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -807,7 +817,7 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentsByCorrespondentHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentsByCorrespondentHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, GetDocumentsByCorrespondentInput{CorrespondentID: 5}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -838,7 +848,7 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentsByCorrespondentHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentsByCorrespondentHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, GetDocumentsByCorrespondentInput{
 			CorrespondentID: 5,
 			Page:            3,
@@ -861,7 +871,7 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentsByCorrespondentHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentsByCorrespondentHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, GetDocumentsByCorrespondentInput{CorrespondentID: 999}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -880,7 +890,7 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentsByCorrespondentHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentsByCorrespondentHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, _, err := handler(ctx(), nil, GetDocumentsByCorrespondentInput{CorrespondentID: 1}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -1077,7 +1087,7 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentsByTagHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentsByTagHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 7}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1108,7 +1118,7 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentsByTagHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentsByTagHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 7, Page: 2, PageSize: 30})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1127,7 +1137,7 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentsByTagHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentsByTagHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 999}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1146,7 +1156,7 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentsByTagHandler(svc, newTestCorrSvc())
+		handler := NewGetDocumentsByTagHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, _, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 1}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -1179,7 +1189,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewFulltextSearchHandler(svc, newTestCorrSvc())
+		handler := NewFulltextSearchHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "invoice"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1207,7 +1217,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewFulltextSearchHandler(svc, newTestCorrSvc())
+		handler := NewFulltextSearchHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "invoice"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1248,7 +1258,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewFulltextSearchHandler(svc, newTestCorrSvc())
+		handler := NewFulltextSearchHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "contract"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1276,7 +1286,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewFulltextSearchHandler(svc, newTestCorrSvc())
+		handler := NewFulltextSearchHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, _, err := handler(ctx(), nil, FulltextSearchInput{Query: "test"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1298,7 +1308,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewFulltextSearchHandler(svc, newTestCorrSvc())
+		handler := NewFulltextSearchHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "test", Page: 3, PageSize: 50})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1317,7 +1327,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewFulltextSearchHandler(svc, newTestCorrSvc())
+		handler := NewFulltextSearchHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "nonexistent"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1336,7 +1346,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewFulltextSearchHandler(svc, newTestCorrSvc())
+		handler := NewFulltextSearchHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
 		_, _, err := handler(ctx(), nil, FulltextSearchInput{Query: "fail"}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
