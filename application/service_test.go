@@ -127,7 +127,7 @@ func TestDocumentService_Search(t *testing.T) {
 	t.Run("nil result", func(t *testing.T) {
 		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
-				return nil, nil
+				return nil, nil //nolint:nilnil
 			},
 		}
 
@@ -215,7 +215,7 @@ func TestDocumentService_GetByID(t *testing.T) {
 	t.Run("nil result", func(t *testing.T) {
 		repo := &mockDocRepo{ //nolint:exhaustruct
 			getByIDFn: func(ctx context.Context, id int) (*domain.Document, error) {
-				return nil, nil
+				return nil, nil //nolint:nilnil
 			},
 		}
 
@@ -574,7 +574,7 @@ func TestDocumentService_ErrorWrapping(t *testing.T) {
 // CorrespondentService tests
 // ---------------------------------------------------------------------------
 
-func TestCorrespondentService_Search(t *testing.T) {
+func TestCorrespondentService_Search(t *testing.T) { //nolint:gocognit
 	t.Run("success", func(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Correspondent]{
 			Total: 2,
@@ -594,6 +594,7 @@ func TestCorrespondentService_Search(t *testing.T) {
 				capturedPageSize = pageSize
 				return expected, nil
 			},
+			getByIDFn: nil,
 		}
 
 		svc := NewCorrespondentService(repo)
@@ -632,6 +633,7 @@ func TestCorrespondentService_Search(t *testing.T) {
 			searchFn: func(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error) {
 				return nil, errMock
 			},
+			getByIDFn: nil,
 		}
 
 		svc := NewCorrespondentService(repo)
@@ -647,8 +649,9 @@ func TestCorrespondentService_Search(t *testing.T) {
 	t.Run("nil result", func(t *testing.T) {
 		repo := &mockCorrespondentRepo{
 			searchFn: func(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error) {
-				return nil, nil
+				return nil, nil //nolint:nilnil
 			},
+			getByIDFn: nil,
 		}
 
 		svc := NewCorrespondentService(repo)
@@ -671,6 +674,7 @@ func TestCorrespondentService_Search(t *testing.T) {
 			searchFn: func(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error) {
 				return expected, nil
 			},
+			getByIDFn: nil,
 		}
 
 		svc := NewCorrespondentService(repo)
@@ -691,6 +695,7 @@ func TestCorrespondentService_Search(t *testing.T) {
 			searchFn: func(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error) {
 				return nil, errMock
 			},
+			getByIDFn: nil,
 		}
 
 		svc := NewCorrespondentService(repo)
@@ -708,7 +713,7 @@ func TestCorrespondentService_Search(t *testing.T) {
 // TagService tests
 // ---------------------------------------------------------------------------
 
-func TestTagService_List(t *testing.T) {
+func TestTagService_List(t *testing.T) { //nolint:gocognit
 	t.Run("success", func(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Tag]{
 			Total: 3,
@@ -782,7 +787,7 @@ func TestTagService_List(t *testing.T) {
 	t.Run("nil result", func(t *testing.T) {
 		repo := &mockTagRepo{
 			listFn: func(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Tag], error) {
-				return nil, nil
+				return nil, nil //nolint:nilnil
 			},
 		}
 

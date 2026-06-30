@@ -66,32 +66,32 @@ func assertAcceptHeader(t *testing.T, r *http.Request) {
 // test data
 // ---------------------------------------------------------------------------
 
-var sampleDocumentRaw = map[string]any{
+var sampleDocumentRaw = map[string]any{ //nolint:gochecknoglobals
 	"id":                     123,
-	"correspondent":          5,
-	"document_type":          2,
-	"storage_path":           nil,
-	"title":                  "Bank Statement March 2024",
-	"content":                "Full OCR text content of the document...",
-	"tags":                   []int{7, 12, 15},
-	"created":                "2024-03-15",
-	"created_date":           "2024-03-15",
-	"modified":               "2024-03-15T14:30:00+00:00",
-	"added":                  "2024-03-15T10:00:00+00:00",
+	"correspondent":          5,                                          //nolint:goconst
+	"document_type":          2,                                          //nolint:goconst
+	"storage_path":           nil,                                        //nolint:goconst
+	"title":                  "Bank Statement March 2024",                //nolint:goconst
+	"content":                "Full OCR text content of the document...", //nolint:goconst
+	"tags":                   []int{7, 12, 15},                           //nolint:goconst
+	"created":                "2024-03-15",                               //nolint:goconst
+	"created_date":           "2024-03-15",                               //nolint:goconst
+	"modified":               "2024-03-15T14:30:00+00:00",                //nolint:goconst
+	"added":                  "2024-03-15T10:00:00+00:00",                //nolint:goconst
 	"deleted_at":             nil,
-	"archive_serial_number":  42,
-	"original_file_name":     "statement.pdf",
-	"archived_file_name":     "20240315_bank_statement.pdf",
-	"owner":                  1,
-	"user_can_change":        true,
-	"is_shared_by_requester": false,
-	"notes":                  []any{},
-	"custom_fields":          []any{},
-	"page_count":             3,
-	"mime_type":              "application/pdf",
+	"archive_serial_number":  42,                            //nolint:goconst
+	"original_file_name":     "statement.pdf",               //nolint:goconst
+	"archived_file_name":     "20240315_bank_statement.pdf", //nolint:goconst
+	"owner":                  1,                             //nolint:goconst
+	"user_can_change":        true,                          //nolint:goconst
+	"is_shared_by_requester": false,                         //nolint:goconst
+	"notes":                  []any{},                       //nolint:goconst
+	"custom_fields":          []any{},                       //nolint:goconst
+	"page_count":             3,                             //nolint:goconst
+	"mime_type":              "application/pdf",             //nolint:goconst
 }
 
-var sampleDocumentWithSearchHit = map[string]any{
+var sampleDocumentWithSearchHit = map[string]any{ //nolint:gochecknoglobals
 	"id":                     123,
 	"correspondent":          nil,
 	"document_type":          nil,
@@ -120,7 +120,7 @@ var sampleDocumentWithSearchHit = map[string]any{
 	},
 }
 
-var sampleDocumentNullFields = map[string]any{
+var sampleDocumentNullFields = map[string]any{ //nolint:gochecknoglobals
 	"id":                     456,
 	"correspondent":          nil,
 	"document_type":          nil,
@@ -145,23 +145,23 @@ var sampleDocumentNullFields = map[string]any{
 	"custom_fields":          []any{},
 }
 
-var sampleCorrespondentRaw = map[string]any{
+var sampleCorrespondentRaw = map[string]any{ //nolint:gochecknoglobals
 	"id":                  5,
-	"slug":                "acme-corp",
-	"name":                "Acme Corp",
-	"match":               "acme",
-	"matching_algorithm":  1,
-	"is_insensitive":      true,
-	"document_count":      23,
+	"slug":                "acme-corp", //nolint:goconst
+	"name":                "Acme Corp", //nolint:goconst
+	"match":               "acme",      //nolint:goconst
+	"matching_algorithm":  1,           //nolint:goconst
+	"is_insensitive":      true,        //nolint:goconst
+	"document_count":      23,          //nolint:goconst
 	"last_correspondence": "2024-06-15",
 	"owner":               1,
 	"user_can_change":     true,
 }
 
-var sampleTagRaw = map[string]any{
+var sampleTagRaw = map[string]any{ //nolint:gochecknoglobals
 	"id":                 7,
-	"slug":               "invoice",
-	"name":               "Invoice",
+	"slug":               "invoice", //nolint:goconst
+	"name":               "Invoice", //nolint:goconst
 	"color":              "#a6cee3",
 	"text_color":         "#000000",
 	"match":              "invoice",
@@ -356,7 +356,7 @@ func TestClient_Search_WithDateRange(t *testing.T) {
 
 	client := newClient(srv.URL)
 	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
-		CreatedAfter:  "2024-01-01",
+		CreatedAfter:  "2024-01-01", //nolint:goconst
 		CreatedBefore: "2024-03-31",
 	})
 	if err != nil {
@@ -496,7 +496,7 @@ func TestClient_Search_RequestValidation(t *testing.T) {
 // Client.GetByID — single document
 // ---------------------------------------------------------------------------
 
-func TestClient_GetByID_Existing(t *testing.T) {
+func TestClient_GetByID_Existing(t *testing.T) { //nolint:gocognit
 	t.Parallel()
 
 	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -1499,8 +1499,8 @@ func TestClient_Search_Status300_Rejected(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusMultipleChoices) // 300
-		w.Write([]byte(`{"detail":"multiple choices"}`))
+		w.WriteHeader(http.StatusMultipleChoices)        // 300
+		w.Write([]byte(`{"detail":"multiple choices"}`)) //nolint:errcheck
 	})
 	defer srv.Close()
 

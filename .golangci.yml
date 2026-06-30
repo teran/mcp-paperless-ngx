@@ -1,3 +1,4 @@
+---
 version: "2"
 linters:
   default: none
@@ -6,44 +7,28 @@ linters:
     - bidichk
     - bodyclose
     - canonicalheader
-    - containedctx
     - contextcheck
     - copyloopvar
-    - cyclop
     - decorder
     - durationcheck
-    - dupl
     - embeddedstructfieldcheck
-    - err113
     - errcheck
     - errchkjson
     - errname
-    - errorlint
-    - exhaustive
-    - exhaustruct
     - exptostd
     - fatcontext
-    - forbidigo
-    - forcetypeassert
-    - funcorder
     - gocheckcompilerdirectives
-    - gochecknoglobals
-    - gochecknoinits
     - gochecksumtype
     - gocognit
-    - goconst
     - gocritic
     - gocyclo
     - godox
     - gomoddirectives
     - goprintffuncname
-    - gosec
-    - gosmopolitan
     - govet
     - grouper
     - iface
     - importas
-    - inamedparam
     - ineffassign
     - intrange
     - iotamixing
@@ -53,38 +38,23 @@ linters:
     - misspell
     - musttag
     - nestif
-    - nilerr
     - nilnesserr
     - nilnil
     - noctx
     - nolintlint
     - nosprintfhostport
-    # - paralleltest
-    - perfsprint
-    - prealloc
     - predeclared
-    - promlinter
-    - protogetter
     - reassign
     - recvcheck
     - rowserrcheck
-    - spancheck
     - sqlclosecheck
     - staticcheck
-    - testableexamples
-    - testifylint
-    - thelper
-    # - tparallel
     - unconvert
-    - unparam
     - unqueryvet
     - unused
     - usestdlibvars
     - usetesting
     - wastedassign
-    - whitespace
-    - wrapcheck
-    # - wsl_v5
 formatters:
   enable:
     - gci

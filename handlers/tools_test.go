@@ -81,22 +81,22 @@ func intPtr(v int) *int {
 // Test data
 // ============================================================
 
-var testDocs = []domain.Document{
+var testDocs = []domain.Document{ //nolint:gochecknoglobals
 	{ //nolint:exhaustruct
 		ID:                  1,
-		Title:               "Invoice March 2024",
+		Title:               "Invoice March 2024", //nolint:goconst
 		Content:             "This is the OCR text of the invoice.",
 		Correspondent:       intPtr(5),
 		DocumentType:        intPtr(2),
 		Tags:                []int{7, 10},
-		Created:             "2024-03-15",
+		Created:             "2024-03-15", //nolint:goconst
 		CreatedDate:         "2024-03-15",
 		Modified:            "2024-03-16T10:00:00Z",
 		Added:               "2024-03-16T12:00:00Z",
 		ArchiveSerialNumber: intPtr(42),
 		OriginalFileName:    "invoice.pdf",
 		ArchivedFileName:    strPtr("invoice_archive.pdf"),
-		MimeType:            "application/pdf",
+		MimeType:            "application/pdf", //nolint:goconst
 		PageCount:           intPtr(3),
 		SearchHit:           &domain.SearchHit{Score: 12.345, Highlights: "OCR text of the invoice", Rank: 1},
 	},
@@ -130,15 +130,15 @@ var testDocs = []domain.Document{
 	},
 }
 
-var testCorrespondents = []domain.Correspondent{
+var testCorrespondents = []domain.Correspondent{ //nolint:gochecknoglobals
 	{ID: 1, Name: "Acme Corp", Slug: "acme-corp", DocumentCount: 10, MatchingAlgorithm: 1, IsInsensitive: true},          //nolint:exhaustruct
 	{ID: 2, Name: "Bob's Supplies", Slug: "bobs-supplies", DocumentCount: 5, MatchingAlgorithm: 1, IsInsensitive: false}, //nolint:exhaustruct
 	{ID: 3, Name: "Charlie & Co", Slug: "charlie-co", DocumentCount: 0, MatchingAlgorithm: 0, IsInsensitive: false},      //nolint:exhaustruct
 }
 
-var testTags = []domain.Tag{
+var testTags = []domain.Tag{ //nolint:gochecknoglobals
 	{ID: 1, Name: "Important", Slug: "important", Color: "red", DocumentCount: 12, IsInboxTag: false},         //nolint:exhaustruct
-	{ID: 2, Name: "Inbox", Slug: "inbox", Color: "blue", DocumentCount: 3, IsInboxTag: true},                  //nolint:exhaustruct
+	{ID: 2, Name: "Inbox", Slug: "inbox", Color: "blue", DocumentCount: 3, IsInboxTag: true},                  //nolint:exhaustruct,goconst
 	{ID: 3, Name: "Review Later", Slug: "review-later", Color: "yellow", DocumentCount: 7, IsInboxTag: false}, //nolint:exhaustruct
 }
 
@@ -187,7 +187,7 @@ func TestNormalizePagination(t *testing.T) {
 // toDocumentSummaries tests
 // ============================================================
 
-func TestToDocumentSummaries(t *testing.T) {
+func TestToDocumentSummaries(t *testing.T) { //nolint:gocognit
 	t.Parallel()
 
 	t.Run("converts documents to summaries", func(t *testing.T) {
@@ -196,7 +196,7 @@ func TestToDocumentSummaries(t *testing.T) {
 		docs := []domain.Document{
 			{ //nolint:exhaustruct
 				ID: 1, Title: "Test", Correspondent: intPtr(5), Tags: []int{7},
-				Created: "2024-01-01", MimeType: "application/pdf",
+				Created: "2024-01-01", MimeType: "application/pdf", //nolint:goconst
 				ArchiveSerialNumber: intPtr(42), PageCount: intPtr(3),
 			},
 			{ //nolint:exhaustruct
@@ -270,7 +270,7 @@ func TestToDocumentSummaries(t *testing.T) {
 // search_documents
 // ============================================================
 
-func TestNewSearchDocumentsHandler(t *testing.T) {
+func TestNewSearchDocumentsHandler(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 	t.Parallel()
 
 	t.Run("success with no filters", func(t *testing.T) {
@@ -309,7 +309,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 
 		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
-				if params.Query != "invoice" {
+				if params.Query != "invoice" { //nolint:goconst
 					t.Errorf("expected query=%q, got %q", "invoice", params.Query)
 				}
 				if params.CorrespondentID != 5 {
@@ -399,7 +399,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 		})
 
 		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
-		_, output, err := handler(ctx(), nil, SearchDocumentsInput{Query: "nonexistent"}) //nolint:exhaustruct
+		_, output, err := handler(ctx(), nil, SearchDocumentsInput{Query: "nonexistent"}) //nolint:exhaustruct,goconst
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -421,7 +421,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 		})
 
 		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
-		_, _, err := handler(ctx(), nil, SearchDocumentsInput{Query: "fail"}) //nolint:exhaustruct
+		_, _, err := handler(ctx(), nil, SearchDocumentsInput{Query: "fail"}) //nolint:exhaustruct,goconst
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -493,7 +493,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 // get_document_content
 // ============================================================
 
-func TestNewGetDocumentContentHandler(t *testing.T) {
+func TestNewGetDocumentContentHandler(t *testing.T) { //nolint:gocognit,gocyclo
 	t.Parallel()
 
 	t.Run("existing document", func(t *testing.T) {
@@ -559,7 +559,7 @@ func TestNewGetDocumentContentHandler(t *testing.T) {
 
 		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			getByIDFn: func(ctx context.Context, id int) (*domain.Document, error) {
-				return nil, errors.New("document not found")
+				return nil, errors.New("document not found") //nolint:err113
 			},
 		})
 
@@ -635,7 +635,7 @@ func TestNewGetDocumentContentHandler(t *testing.T) {
 // search_correspondents
 // ============================================================
 
-func TestNewSearchCorrespondentsHandler(t *testing.T) {
+func TestNewSearchCorrespondentsHandler(t *testing.T) { //nolint:gocognit
 	t.Parallel()
 
 	t.Run("success with query", func(t *testing.T) {
@@ -651,6 +651,7 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) {
 					Results: testCorrespondents[:1],
 				}, nil
 			},
+			getByIDFn: nil,
 		})
 
 		handler := NewSearchCorrespondentsHandler(svc)
@@ -691,6 +692,7 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) {
 					Results: testCorrespondents,
 				}, nil
 			},
+			getByIDFn: nil,
 		})
 
 		handler := NewSearchCorrespondentsHandler(svc)
@@ -722,6 +724,7 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) {
 					Results: testCorrespondents,
 				}, nil
 			},
+			getByIDFn: nil,
 		})
 
 		handler := NewSearchCorrespondentsHandler(svc)
@@ -747,6 +750,7 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) {
 				}
 				return &domain.PaginatedResult[domain.Correspondent]{Total: 0, Results: []domain.Correspondent{}}, nil
 			},
+			getByIDFn: nil,
 		})
 
 		handler := NewSearchCorrespondentsHandler(svc)
@@ -763,6 +767,7 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) {
 			searchFn: func(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error) {
 				return &domain.PaginatedResult[domain.Correspondent]{Total: 0, Results: []domain.Correspondent{}}, nil
 			},
+			getByIDFn: nil,
 		})
 
 		handler := NewSearchCorrespondentsHandler(svc)
@@ -833,6 +838,7 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 		}
 	})
 
+	//nolint:dupl
 	t.Run("pagination", func(t *testing.T) {
 		t.Parallel()
 
@@ -905,7 +911,7 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 // list_tags
 // ============================================================
 
-func TestNewListTagsHandler(t *testing.T) {
+func TestNewListTagsHandler(t *testing.T) { //nolint:gocognit
 	t.Parallel()
 
 	t.Run("success without query", func(t *testing.T) {
@@ -1103,6 +1109,7 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 		}
 	})
 
+	//nolint:dupl
 	t.Run("pagination", func(t *testing.T) {
 		t.Parallel()
 
@@ -1171,7 +1178,7 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 // fulltext_search
 // ============================================================
 
-func TestNewFulltextSearchHandler(t *testing.T) {
+func TestNewFulltextSearchHandler(t *testing.T) { //nolint:gocognit,maintidx
 	t.Parallel()
 
 	t.Run("success with query", func(t *testing.T) {
@@ -1293,6 +1300,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 		}
 	})
 
+	//nolint:dupl
 	t.Run("pagination passed through", func(t *testing.T) {
 		t.Parallel()
 

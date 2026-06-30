@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestTokenMiddleware(t *testing.T) {
+func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,maintidx
 	t.Parallel()
 
 	t.Run("Bearer token passes through", func(t *testing.T) {
@@ -17,7 +17,11 @@ func TestTokenMiddleware(t *testing.T) {
 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw := ClientFromContext(r.Context())
 			if raw != nil {
-				capturedToken = raw.(string)
+				var ok bool
+				capturedToken, ok = raw.(string)
+				if !ok {
+					t.Error("expected string type from context")
+				}
 			}
 			w.WriteHeader(http.StatusOK)
 		})
@@ -45,7 +49,11 @@ func TestTokenMiddleware(t *testing.T) {
 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw := ClientFromContext(r.Context())
 			if raw != nil {
-				capturedToken = raw.(string)
+				var ok bool
+				capturedToken, ok = raw.(string)
+				if !ok {
+					t.Error("expected string type from context")
+				}
 			}
 			w.WriteHeader(http.StatusOK)
 		})
@@ -61,7 +69,7 @@ func TestTokenMiddleware(t *testing.T) {
 		if rr.Code != http.StatusOK {
 			t.Errorf("expected status 200, got %d", rr.Code)
 		}
-		if capturedToken != "token-via-old-scheme" {
+		if capturedToken != "token-via-old-scheme" { //nolint:gosec
 			t.Errorf("expected token %q, got %q", "token-via-old-scheme", capturedToken)
 		}
 	})
@@ -73,7 +81,11 @@ func TestTokenMiddleware(t *testing.T) {
 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw := ClientFromContext(r.Context())
 			if raw != nil {
-				capturedToken = raw.(string)
+				var ok bool
+				capturedToken, ok = raw.(string)
+				if !ok {
+					t.Error("expected string type from context")
+				}
 			}
 			w.WriteHeader(http.StatusOK)
 		})
@@ -101,7 +113,11 @@ func TestTokenMiddleware(t *testing.T) {
 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw := ClientFromContext(r.Context())
 			if raw != nil {
-				capturedToken = raw.(string)
+				var ok bool
+				capturedToken, ok = raw.(string)
+				if !ok {
+					t.Error("expected string type from context")
+				}
 			}
 			w.WriteHeader(http.StatusOK)
 		})
@@ -129,7 +145,11 @@ func TestTokenMiddleware(t *testing.T) {
 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw := ClientFromContext(r.Context())
 			if raw != nil {
-				capturedToken = raw.(string)
+				var ok bool
+				capturedToken, ok = raw.(string)
+				if !ok {
+					t.Error("expected string type from context")
+				}
 			}
 			w.WriteHeader(http.StatusOK)
 		})

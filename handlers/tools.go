@@ -172,7 +172,7 @@ func normalizePagination(page, pageSize int) (int, int) {
 func toDocumentSummaries(docs []domain.Document, corrNames map[int]string, docTypeNames map[int]string) []DocumentSummary {
 	result := make([]DocumentSummary, 0, len(docs))
 	for _, doc := range docs {
-		summary := DocumentSummary{
+		summary := DocumentSummary{ //nolint:exhaustruct
 			ID:            doc.ID,
 			Title:         doc.Title,
 			Correspondent: doc.Correspondent,
@@ -425,7 +425,7 @@ func NewFulltextSearchHandler(svc *application.DocumentService, corrSvc *applica
 
 		items := make([]FulltextSearchResultItem, 0, len(result.Results))
 		for _, doc := range result.Results {
-			item := FulltextSearchResultItem{
+			item := FulltextSearchResultItem{ //nolint:exhaustruct
 				ID:            doc.ID,
 				Title:         doc.Title,
 				Correspondent: doc.Correspondent,

@@ -19,10 +19,10 @@ import (
 
 // Context keys for dependency injection.
 type (
-	docServiceCtxKey      struct{}
-	corrServiceCtxKey     struct{}
-	docTypeServiceCtxKey  struct{}
-	tagServiceCtxKey      struct{}
+	docServiceCtxKey     struct{}
+	corrServiceCtxKey    struct{}
+	docTypeServiceCtxKey struct{}
+	tagServiceCtxKey     struct{}
 )
 
 func contextWithServices(ctx context.Context, docSvc *application.DocumentService, corrSvc *application.CorrespondentService, docTypeSvc *application.DocumentTypeService, tagSvc *application.TagService) context.Context {
