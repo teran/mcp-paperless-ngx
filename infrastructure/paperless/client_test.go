@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,12 +17,6 @@ import (
 // helper functions
 // ---------------------------------------------------------------------------
 
-// ptrInt is a small helper to get a pointer to an int literal.
-func ptrInt(v int) *int { return &v }
-
-// ptrStr is a small helper to get a pointer to a string literal.
-func ptrStr(v string) *string { return &v }
-
 // newTestServer returns an httptest.Server whose handler asserts the method
 // and decodes query parameters so each test can plug in its own handler.
 func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
@@ -34,25 +26,6 @@ func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) *httpte
 // newClient builds a paperless.Client pointed at the given baseURL.
 func newClient(baseURL string) *paperless.Client {
 	return paperless.NewClient(baseURL, "test-token-123")
-}
-
-// mustMarshal panics if encoding fails; use only in test helpers.
-func mustMarshal(v any) []byte {
-	data, err := json.Marshal(v)
-	if err != nil {
-		panic(fmt.Sprintf("json.Marshal: %v", err))
-	}
-	return data
-}
-
-// mustReadAll reads the body and returns it as a string.
-func mustReadAll(t *testing.T, r io.Reader) string {
-	t.Helper()
-	b, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatalf("ReadAll: %v", err)
-	}
-	return string(b)
 }
 
 // assertQueryParam checks that the query string in the request contains the

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,7 +24,7 @@ func TestTokenMiddleware(t *testing.T) {
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer my-secret-token")
 
 		rr := httptest.NewRecorder()
@@ -51,7 +52,7 @@ func TestTokenMiddleware(t *testing.T) {
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Token token-via-old-scheme")
 
 		rr := httptest.NewRecorder()
@@ -79,7 +80,7 @@ func TestTokenMiddleware(t *testing.T) {
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "BEARER uppercase-bearer")
 
 		rr := httptest.NewRecorder()
@@ -107,7 +108,7 @@ func TestTokenMiddleware(t *testing.T) {
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "TOKEN upper-token")
 
 		rr := httptest.NewRecorder()
@@ -135,7 +136,7 @@ func TestTokenMiddleware(t *testing.T) {
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer   token-with-spaces   ")
 
 		rr := httptest.NewRecorder()
@@ -158,7 +159,7 @@ func TestTokenMiddleware(t *testing.T) {
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 		// No Authorization header set.
 
 		rr := httptest.NewRecorder()
@@ -182,7 +183,7 @@ func TestTokenMiddleware(t *testing.T) {
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer ")
 
 		rr := httptest.NewRecorder()
@@ -206,7 +207,7 @@ func TestTokenMiddleware(t *testing.T) {
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer")
 
 		rr := httptest.NewRecorder()
@@ -226,7 +227,7 @@ func TestTokenMiddleware(t *testing.T) {
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
 
 		rr := httptest.NewRecorder()
@@ -250,7 +251,7 @@ func TestTokenMiddleware(t *testing.T) {
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", " Bearer leading-whitespace")
 
 		rr := httptest.NewRecorder()
