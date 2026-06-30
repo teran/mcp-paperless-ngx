@@ -1,0 +1,4 @@
+.git/
+.gitignore
+.golangci.yml
+*.md

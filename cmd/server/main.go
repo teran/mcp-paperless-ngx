@@ -46,6 +46,13 @@ func tagServiceFromContext(ctx context.Context) *application.TagService {
 	return v
 }
 
+// Build-time variables injected by goreleaser (via ldflags).
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 var errTokenVerification = errors.New("token verification failed")
 
 func main() {
@@ -63,7 +70,7 @@ func main() {
 	// Create the MCP server instance.
 	srv := mcp.NewServer(&mcp.Implementation{ //nolint:exhaustruct
 		Name:    "mcp-paperless-ngx",
-		Version: "v1.0.0",
+		Version: version,
 	}, &mcp.ServerOptions{ //nolint:exhaustruct
 		Capabilities: &mcp.ServerCapabilities{ //nolint:exhaustruct
 			Tools: &mcp.ToolCapabilities{ListChanged: false},
@@ -90,6 +97,7 @@ func main() {
 	log.Printf("Starting mcp-paperless-ngx server on %s", sanitizeLog(listenAddr))
 	//nolint:gosec // env vars are server-side config
 	log.Printf("Paperless-ngx URL: %s", sanitizeLog(paperlessURL))
+	log.Printf("Version: %s, commit: %s, built: %s", version, commit, date)
 
 	httpServer := &http.Server{ //nolint:exhaustruct
 		Addr:              listenAddr,
