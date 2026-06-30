@@ -49,8 +49,8 @@ func tagServiceFromContext(ctx context.Context) *application.TagService {
 // Build-time variables injected by goreleaser (via ldflags).
 var (
 	version = "dev"
-	commit  = "none"
-	date    = "unknown"
+	commit  = "none"    //nolint:gochecknoglobals
+	date    = "unknown" //nolint:gochecknoglobals
 )
 
 var errTokenVerification = errors.New("token verification failed")
