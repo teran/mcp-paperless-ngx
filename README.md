@@ -83,8 +83,10 @@ go run .
 ## Build
 
 ```bash
-go build -o mcp-paperless-ngx .
+goreleaser build --snapshot --clean
 ```
+
+The binaries are placed in the `dist/` directory.
 
 ## Development
 
@@ -101,25 +103,33 @@ golangci-lint run ./...
 
 ### Adding a new tool
 
-1. Define input/output types in `internal/server/tools.go`
-2. Write the handler function
-3. Add `mcp.AddTool(server, &mcp.Tool{...}, handler)` in `RegisterTools()`
+1. Define input/output types in `handlers/tools.go`
+2. Write the handler factory function
+3. Register the tool in `registerTools()` in `cmd/server/main.go`
+4. If a new domain entity is needed, define it in `domain/` and add a repository interface
 
 ## Project Structure
 
 ```
 .
-├── main.go                    # Entry point with middleware & server setup
+├── cmd/server/main.go         # Entry point (composition root, DI wiring)
 ├── AGENTS.md                  # Agent documentation
 ├── SPEC.md                    # Full specification
 ├── .golangci.yml              # Linter configuration
-├── internal/
-│   ├── paperless/
-│   │   ├── models.go          # Paperless-ngx data models
-│   │   └── client.go          # Paperless-ngx HTTP client
-│   └── server/
-│       ├── context.go         # Context helpers for PaperlessClient
-│       └── tools.go           # MCP tool definitions and handlers
+├── domain/
+│   ├── document.go            # Document entity + SearchDocumentsParams
+│   ├── correspondent.go       # Correspondent entity
+│   ├── tag.go                 # Tag entity
+│   └── repository.go          # Repository interfaces
+├── application/
+│   └── service.go             # Use case services
+├── infrastructure/
+│   └── paperless/
+│       ├── client.go          # HTTP client (infra) + repo adapters
+│       └── models.go          # Wire-format JSON models + domain converters
+└── handlers/
+    ├── middleware.go          # Token extraction middleware
+    └── tools.go              # MCP tool handlers (primary adapters)
 ```
 
 ## License
