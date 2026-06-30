@@ -2,11 +2,15 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/teran/mcp-paperless-ngx/internal/paperless"
 )
+
+var errClientNotFound = errors.New("paperless client not found in context — missing Authorization header or middleware misconfiguration")
 
 // ============================================================
 // Tool input/output types
@@ -42,9 +46,9 @@ type DocumentSummary struct {
 }
 
 type SearchDocumentsOutput struct {
-	Total   int                `json:"total"`
-	Page    int                `json:"page"`
-	Results []DocumentSummary  `json:"results"`
+	Total   int               `json:"total"`
+	Page    int               `json:"page"`
+	Results []DocumentSummary `json:"results"`
 }
 
 // --- get_document_content ---
@@ -54,19 +58,19 @@ type GetDocumentContentInput struct {
 }
 
 type DocumentDetail struct {
-	ID                  int      `json:"id"`
-	Title               string   `json:"title"`
-	Content             string   `json:"content"`
-	Correspondent       *int     `json:"correspondent,omitempty"`
-	DocumentType        *int     `json:"document_type,omitempty"`
-	Tags                []int    `json:"tags,omitempty"`
-	Created             string   `json:"created"`
-	Modified            string   `json:"modified"`
-	Added               string   `json:"added"`
-	ArchiveSerialNumber *int     `json:"archive_serial_number,omitempty"`
-	OriginalFileName    string   `json:"original_file_name"`
-	MimeType            string   `json:"mime_type"`
-	PageCount           *int     `json:"page_count,omitempty"`
+	ID                  int    `json:"id"`
+	Title               string `json:"title"`
+	Content             string `json:"content"`
+	Correspondent       *int   `json:"correspondent,omitempty"`
+	DocumentType        *int   `json:"document_type,omitempty"`
+	Tags                []int  `json:"tags,omitempty"`
+	Created             string `json:"created"`
+	Modified            string `json:"modified"`
+	Added               string `json:"added"`
+	ArchiveSerialNumber *int   `json:"archive_serial_number,omitempty"`
+	OriginalFileName    string `json:"original_file_name"`
+	MimeType            string `json:"mime_type"`
+	PageCount           *int   `json:"page_count,omitempty"`
 }
 
 // --- search_correspondents ---
@@ -107,11 +111,11 @@ type ListTagsInput struct {
 }
 
 type TagSummary struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Color       string `json:"color"`
-	IsInboxTag  bool   `json:"is_inbox_tag"`
-	DocumentCount int  `json:"document_count"`
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	Color         string `json:"color"`
+	IsInboxTag    bool   `json:"is_inbox_tag"`
+	DocumentCount int    `json:"document_count"`
 }
 
 type ListTagsOutput struct {
@@ -137,32 +141,61 @@ type FulltextSearchInput struct {
 }
 
 type FulltextSearchResultItem struct {
-	ID            int        `json:"id"`
-	Title         string     `json:"title"`
-	Correspondent *int       `json:"correspondent,omitempty"`
-	Tags          []int      `json:"tags,omitempty"`
-	Created       string     `json:"created"`
-	Score         float64    `json:"score,omitempty"`
-	Highlights    string     `json:"highlights,omitempty"`
-	Rank          int        `json:"rank,omitempty"`
+	ID            int     `json:"id"`
+	Title         string  `json:"title"`
+	Correspondent *int    `json:"correspondent,omitempty"`
+	Tags          []int   `json:"tags,omitempty"`
+	Created       string  `json:"created"`
+	Score         float64 `json:"score,omitempty"`
+	Highlights    string  `json:"highlights,omitempty"`
+	Rank          int     `json:"rank,omitempty"`
 }
 
 type FulltextSearchOutput struct {
-	Total   int                       `json:"total"`
-	Page    int                       `json:"page"`
+	Total   int                        `json:"total"`
+	Page    int                        `json:"page"`
 	Results []FulltextSearchResultItem `json:"results"`
 }
 
 // ============================================================
-// Helper: get client from context
+// Helpers
 // ============================================================
 
 func mustGetClient(ctx context.Context) (*paperless.Client, error) {
 	client := ClientFromContext(ctx)
 	if client == nil {
-		return nil, fmt.Errorf("paperless client not found in context — missing Authorization header or middleware misconfiguration")
+		return nil, errClientNotFound
 	}
 	return client, nil
+}
+
+// normalizePagination clamps page/pageSize to valid defaults.
+func normalizePagination(page, pageSize int) (int, int) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 25
+	}
+	return page, pageSize
+}
+
+// toDocumentSummaries converts a slice of paperless.Document to DocumentSummary.
+func toDocumentSummaries(docs []paperless.Document) []DocumentSummary {
+	result := make([]DocumentSummary, 0, len(docs))
+	for _, doc := range docs {
+		result = append(result, DocumentSummary{
+			ID:            doc.ID,
+			Title:         doc.Title,
+			Correspondent: doc.Correspondent,
+			Tags:          doc.Tags,
+			Created:       doc.Created,
+			MimeType:      doc.MimeType,
+			ArchiveSerial: doc.ArchiveSerialNumber,
+			PageCount:     doc.PageCount,
+		})
+	}
+	return result
 }
 
 // ============================================================
@@ -175,14 +208,7 @@ func searchDocumentsHandler(ctx context.Context, _ *mcp.CallToolRequest, input S
 		return nil, SearchDocumentsOutput{}, err
 	}
 
-	page := input.Page
-	if page == 0 {
-		page = 1
-	}
-	pageSize := input.PageSize
-	if pageSize == 0 || pageSize > 100 {
-		pageSize = 25
-	}
+	page, pageSize := normalizePagination(input.Page, input.PageSize)
 
 	resp, err := client.SearchDocuments(ctx, paperless.SearchDocumentsParams{
 		Query:           input.Query,
@@ -197,24 +223,10 @@ func searchDocumentsHandler(ctx context.Context, _ *mcp.CallToolRequest, input S
 		return nil, SearchDocumentsOutput{}, fmt.Errorf("search documents: %w", err)
 	}
 
-	results := make([]DocumentSummary, 0, len(resp.Results))
-	for _, doc := range resp.Results {
-		results = append(results, DocumentSummary{
-			ID:            doc.ID,
-			Title:         doc.Title,
-			Correspondent: doc.Correspondent,
-			Tags:          doc.Tags,
-			Created:       doc.Created,
-			MimeType:      doc.MimeType,
-			ArchiveSerial: doc.ArchiveSerialNumber,
-			PageCount:     doc.PageCount,
-		})
-	}
-
 	return nil, SearchDocumentsOutput{
 		Total:   resp.Count,
 		Page:    page,
-		Results: results,
+		Results: toDocumentSummaries(resp.Results),
 	}, nil
 }
 
@@ -252,14 +264,7 @@ func searchCorrespondentsHandler(ctx context.Context, _ *mcp.CallToolRequest, in
 		return nil, SearchCorrespondentsOutput{}, err
 	}
 
-	page := input.Page
-	if page == 0 {
-		page = 1
-	}
-	pageSize := input.PageSize
-	if pageSize == 0 || pageSize > 100 {
-		pageSize = 25
-	}
+	page, pageSize := normalizePagination(input.Page, input.PageSize)
 
 	resp, err := client.SearchCorrespondents(ctx, input.Query, page, pageSize)
 	if err != nil {
@@ -289,38 +294,17 @@ func getDocumentsByCorrespondentHandler(ctx context.Context, _ *mcp.CallToolRequ
 		return nil, SearchDocumentsOutput{}, err
 	}
 
-	page := input.Page
-	if page == 0 {
-		page = 1
-	}
-	pageSize := input.PageSize
-	if pageSize == 0 || pageSize > 100 {
-		pageSize = 25
-	}
+	page, pageSize := normalizePagination(input.Page, input.PageSize)
 
 	resp, err := client.GetDocumentsByCorrespondent(ctx, input.CorrespondentID, page, pageSize)
 	if err != nil {
 		return nil, SearchDocumentsOutput{}, fmt.Errorf("get documents by correspondent: %w", err)
 	}
 
-	results := make([]DocumentSummary, 0, len(resp.Results))
-	for _, doc := range resp.Results {
-		results = append(results, DocumentSummary{
-			ID:            doc.ID,
-			Title:         doc.Title,
-			Correspondent: doc.Correspondent,
-			Tags:          doc.Tags,
-			Created:       doc.Created,
-			MimeType:      doc.MimeType,
-			ArchiveSerial: doc.ArchiveSerialNumber,
-			PageCount:     doc.PageCount,
-		})
-	}
-
 	return nil, SearchDocumentsOutput{
 		Total:   resp.Count,
 		Page:    page,
-		Results: results,
+		Results: toDocumentSummaries(resp.Results),
 	}, nil
 }
 
@@ -330,14 +314,7 @@ func listTagsHandler(ctx context.Context, _ *mcp.CallToolRequest, input ListTags
 		return nil, ListTagsOutput{}, err
 	}
 
-	page := input.Page
-	if page == 0 {
-		page = 1
-	}
-	pageSize := input.PageSize
-	if pageSize == 0 || pageSize > 100 {
-		pageSize = 25
-	}
+	page, pageSize := normalizePagination(input.Page, input.PageSize)
 
 	resp, err := client.ListTags(ctx, input.Query, page, pageSize)
 	if err != nil {
@@ -368,38 +345,17 @@ func getDocumentsByTagHandler(ctx context.Context, _ *mcp.CallToolRequest, input
 		return nil, SearchDocumentsOutput{}, err
 	}
 
-	page := input.Page
-	if page == 0 {
-		page = 1
-	}
-	pageSize := input.PageSize
-	if pageSize == 0 || pageSize > 100 {
-		pageSize = 25
-	}
+	page, pageSize := normalizePagination(input.Page, input.PageSize)
 
 	resp, err := client.GetDocumentsByTag(ctx, input.TagID, page, pageSize)
 	if err != nil {
 		return nil, SearchDocumentsOutput{}, fmt.Errorf("get documents by tag: %w", err)
 	}
 
-	results := make([]DocumentSummary, 0, len(resp.Results))
-	for _, doc := range resp.Results {
-		results = append(results, DocumentSummary{
-			ID:            doc.ID,
-			Title:         doc.Title,
-			Correspondent: doc.Correspondent,
-			Tags:          doc.Tags,
-			Created:       doc.Created,
-			MimeType:      doc.MimeType,
-			ArchiveSerial: doc.ArchiveSerialNumber,
-			PageCount:     doc.PageCount,
-		})
-	}
-
 	return nil, SearchDocumentsOutput{
 		Total:   resp.Count,
 		Page:    page,
-		Results: results,
+		Results: toDocumentSummaries(resp.Results),
 	}, nil
 }
 
@@ -409,14 +365,7 @@ func fulltextSearchHandler(ctx context.Context, _ *mcp.CallToolRequest, input Fu
 		return nil, FulltextSearchOutput{}, err
 	}
 
-	page := input.Page
-	if page == 0 {
-		page = 1
-	}
-	pageSize := input.PageSize
-	if pageSize == 0 || pageSize > 100 {
-		pageSize = 25
-	}
+	page, pageSize := normalizePagination(input.Page, input.PageSize)
 
 	resp, err := client.FulltextSearch(ctx, input.Query, page, pageSize)
 	if err != nil {
@@ -431,6 +380,9 @@ func fulltextSearchHandler(ctx context.Context, _ *mcp.CallToolRequest, input Fu
 			Correspondent: doc.Correspondent,
 			Tags:          doc.Tags,
 			Created:       doc.Created,
+			Score:         0,
+			Highlights:    "",
+			Rank:          0,
 		}
 		if doc.SearchHit != nil {
 			item.Score = doc.SearchHit.Score
@@ -453,38 +405,19 @@ func fulltextSearchHandler(ctx context.Context, _ *mcp.CallToolRequest, input Fu
 
 // RegisterTools registers all tools on the given MCP server.
 func RegisterTools(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "search_documents",
-		Description: "Search documents in Paperless-ngx with optional filters (query, correspondent, tags, date range). Returns paginated results.",
-	}, searchDocumentsHandler)
+	registerTool(s, "search_documents", "Search documents in Paperless-ngx with optional filters (query, correspondent, tags, date range). Returns paginated results.", searchDocumentsHandler)
+	registerTool(s, "get_document_content", "Retrieve the full OCR text content and metadata of a specific document by its ID.", getDocumentContentHandler)
+	registerTool(s, "search_correspondents", "Search correspondents by name (substring match). Returns matching correspondents with document counts.", searchCorrespondentsHandler)
+	registerTool(s, "get_documents_by_correspondent", "List all documents associated with a specific correspondent ID. Returns paginated results.", getDocumentsByCorrespondentHandler)
+	registerTool(s, "list_tags", "List all tags in Paperless-ngx, optionally filtered by name. Returns tags with colors and document counts.", listTagsHandler)
+	registerTool(s, "get_documents_by_tag", "List all documents associated with a specific tag ID. Returns paginated results.", getDocumentsByTagHandler)
+	registerTool(s, "fulltext_search", "Perform a full-text search across all documents. Returns paginated results with search score and highlights.", fulltextSearchHandler)
+}
 
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_document_content",
-		Description: "Retrieve the full OCR text content and metadata of a specific document by its ID.",
-	}, getDocumentContentHandler)
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "search_correspondents",
-		Description: "Search correspondents by name (substring match). Returns matching correspondents with document counts.",
-	}, searchCorrespondentsHandler)
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_documents_by_correspondent",
-		Description: "List all documents associated with a specific correspondent ID. Returns paginated results.",
-	}, getDocumentsByCorrespondentHandler)
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "list_tags",
-		Description: "List all tags in Paperless-ngx, optionally filtered by name. Returns tags with colors and document counts.",
-	}, listTagsHandler)
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "get_documents_by_tag",
-		Description: "List all documents associated with a specific tag ID. Returns paginated results.",
-	}, getDocumentsByTagHandler)
-
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "fulltext_search",
-		Description: "Perform a full-text search across all documents. Returns paginated results with search score and highlights.",
-	}, fulltextSearchHandler)
+// registerTool is a helper to register a tool with a typed handler.
+func registerTool[In, Out any](s *mcp.Server, name, description string, handler mcp.ToolHandlerFor[In, Out]) {
+	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
+		Name:        name,
+		Description: description,
+	}, handler)
 }

@@ -2,17 +2,21 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/teran/mcp-paperless-ngx/internal/paperless"
 	"github.com/teran/mcp-paperless-ngx/internal/server"
 )
+
+var errTokenVerification = errors.New("token verification failed")
 
 func main() {
 	paperlessURL := os.Getenv("PAPERLESS_URL")
@@ -27,11 +31,11 @@ func main() {
 	}
 
 	// Create the MCP server instance.
-	srv := mcp.NewServer(&mcp.Implementation{
+	srv := mcp.NewServer(&mcp.Implementation{ //nolint:exhaustruct
 		Name:    "mcp-paperless-ngx",
 		Version: "v1.0.0",
-	}, &mcp.ServerOptions{
-		Capabilities: &mcp.ServerCapabilities{
+	}, &mcp.ServerOptions{ //nolint:exhaustruct
+		Capabilities: &mcp.ServerCapabilities{ //nolint:exhaustruct
 			Tools: &mcp.ToolCapabilities{ListChanged: false},
 		},
 	})
@@ -44,7 +48,7 @@ func main() {
 		func(r *http.Request) *mcp.Server {
 			return srv
 		},
-		&mcp.StreamableHTTPOptions{
+		&mcp.StreamableHTTPOptions{ //nolint:exhaustruct
 			Stateless: true,
 		},
 	)
@@ -52,12 +56,33 @@ func main() {
 	// Wrap with token extraction middleware.
 	handler := tokenMiddleware(mcpHandler, paperlessURL)
 
-	log.Printf("Starting mcp-paperless-ngx server on %s", listenAddr)
-	log.Printf("Paperless-ngx URL: %s", paperlessURL)
+	//nolint:gosec // log injection not applicable — env vars are server-side config
+	log.Printf("Starting mcp-paperless-ngx server on %s", sanitizeLog(listenAddr))
+	//nolint:gosec // log injection not applicable — env vars are server-side config
+	log.Printf("Paperless-ngx URL: %s", sanitizeLog(paperlessURL))
 
-	if err := http.ListenAndServe(listenAddr, handler); err != nil {
+	server := &http.Server{ //nolint:exhaustruct
+		Addr:              listenAddr,
+		Handler:           handler,
+		ReadHeaderTimeout: 30 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      0, // streaming MCP responses
+		IdleTimeout:       120 * time.Second,
+	}
+
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
+}
+
+// sanitizeLog removes newlines and truncates long strings for safe logging.
+func sanitizeLog(s string) string {
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	if len(s) > 500 {
+		s = s[:500] + "..."
+	}
+	return s
 }
 
 // tokenMiddleware extracts the bearer token from the Authorization header,
@@ -104,5 +129,8 @@ func tokenMiddleware(next http.Handler, paperlessURL string) http.Handler {
 // verifyToken checks if the token is valid by calling the correspondents endpoint.
 func verifyToken(ctx context.Context, client *paperless.Client) error {
 	_, err := client.SearchCorrespondents(ctx, "", 1, 1)
-	return err
+	if err != nil {
+		return fmt.Errorf("%w: %w", errTokenVerification, err)
+	}
+	return nil
 }
