@@ -16,7 +16,7 @@ var errMock = errors.New("mock error")
 
 // mockDocRepo implements domain.DocumentRepository for testing.
 type mockDocRepo struct {
-	searchFn func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error)
+	searchFn  func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error)
 	getByIDFn func(ctx context.Context, id int) (*domain.Document, error)
 }
 
@@ -71,12 +71,12 @@ func TestDocumentService_Search(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Document]{
 			Total: 2,
 			Results: []domain.Document{
-				{ID: 1, Title: "Doc 1"},
-				{ID: 2, Title: "Doc 2"},
+				{ID: 1, Title: "Doc 1"}, //nolint:exhaustruct
+				{ID: 2, Title: "Doc 2"}, //nolint:exhaustruct
 			},
 		}
 
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if params.Page != 1 || params.PageSize != 25 {
 					t.Errorf("unexpected params: %+v", params)
@@ -86,7 +86,7 @@ func TestDocumentService_Search(t *testing.T) {
 		}
 
 		svc := NewDocumentService(repo)
-		result, err := svc.Search(ctx(), domain.SearchDocumentsParams{Page: 1, PageSize: 25})
+		result, err := svc.Search(ctx(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -104,14 +104,14 @@ func TestDocumentService_Search(t *testing.T) {
 	})
 
 	t.Run("error propagation", func(t *testing.T) {
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return nil, errMock
 			},
 		}
 
 		svc := NewDocumentService(repo)
-		_, err := svc.Search(ctx(), domain.SearchDocumentsParams{})
+		_, err := svc.Search(ctx(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -121,14 +121,14 @@ func TestDocumentService_Search(t *testing.T) {
 	})
 
 	t.Run("nil result", func(t *testing.T) {
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return nil, nil
 			},
 		}
 
 		svc := NewDocumentService(repo)
-		result, err := svc.Search(ctx(), domain.SearchDocumentsParams{})
+		result, err := svc.Search(ctx(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -143,14 +143,14 @@ func TestDocumentService_Search(t *testing.T) {
 			Results: []domain.Document{},
 		}
 
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return expected, nil
 			},
 		}
 
 		svc := NewDocumentService(repo)
-		result, err := svc.Search(ctx(), domain.SearchDocumentsParams{})
+		result, err := svc.Search(ctx(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -165,10 +165,10 @@ func TestDocumentService_Search(t *testing.T) {
 
 func TestDocumentService_GetByID(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		expected := &domain.Document{ID: 42, Title: "The Answer"}
+		expected := &domain.Document{ID: 42, Title: "The Answer"} //nolint:exhaustruct
 		called := false
 
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			getByIDFn: func(ctx context.Context, id int) (*domain.Document, error) {
 				called = true
 				if id != 42 {
@@ -192,7 +192,7 @@ func TestDocumentService_GetByID(t *testing.T) {
 	})
 
 	t.Run("error propagation", func(t *testing.T) {
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			getByIDFn: func(ctx context.Context, id int) (*domain.Document, error) {
 				return nil, errMock
 			},
@@ -209,7 +209,7 @@ func TestDocumentService_GetByID(t *testing.T) {
 	})
 
 	t.Run("nil result", func(t *testing.T) {
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			getByIDFn: func(ctx context.Context, id int) (*domain.Document, error) {
 				return nil, nil
 			},
@@ -231,13 +231,13 @@ func TestDocumentService_GetByCorrespondent(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Document]{
 			Total: 1,
 			Results: []domain.Document{
-				{ID: 10, Title: "Correspondent Doc", Correspondent: ptrInt(7)},
+				{ID: 10, Title: "Correspondent Doc", Correspondent: ptrInt(7)}, //nolint:exhaustruct
 			},
 		}
 
 		var capturedParams domain.SearchDocumentsParams
 
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				capturedParams = params
 				return expected, nil
@@ -280,7 +280,7 @@ func TestDocumentService_GetByCorrespondent(t *testing.T) {
 	})
 
 	t.Run("zero correspondent ID", func(t *testing.T) {
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return &domain.PaginatedResult[domain.Document]{Total: 0, Results: []domain.Document{}}, nil
 			},
@@ -297,7 +297,7 @@ func TestDocumentService_GetByCorrespondent(t *testing.T) {
 	})
 
 	t.Run("error propagation", func(t *testing.T) {
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return nil, errMock
 			},
@@ -319,14 +319,14 @@ func TestDocumentService_GetByTag(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Document]{
 			Total: 2,
 			Results: []domain.Document{
-				{ID: 5, Title: "Tagged Doc 1", Tags: []int{3}},
-				{ID: 6, Title: "Tagged Doc 2", Tags: []int{3, 7}},
+				{ID: 5, Title: "Tagged Doc 1", Tags: []int{3}},    //nolint:exhaustruct
+				{ID: 6, Title: "Tagged Doc 2", Tags: []int{3, 7}}, //nolint:exhaustruct
 			},
 		}
 
 		var capturedParams domain.SearchDocumentsParams
 
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				capturedParams = params
 				return expected, nil
@@ -363,7 +363,7 @@ func TestDocumentService_GetByTag(t *testing.T) {
 	})
 
 	t.Run("error propagation", func(t *testing.T) {
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return nil, errMock
 			},
@@ -380,12 +380,12 @@ func TestDocumentService_GetByTag(t *testing.T) {
 	})
 
 	t.Run("empty tag ID list on repo call", func(t *testing.T) {
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if len(params.TagIDs) != 1 || params.TagIDs[0] != 99 {
 					t.Errorf("expected TagIDs=[99], got %v", params.TagIDs)
 				}
-				return &domain.PaginatedResult[domain.Document]{Total: 1, Results: []domain.Document{{ID: 1}}}, nil
+				return &domain.PaginatedResult[domain.Document]{Total: 1, Results: []domain.Document{{ID: 1}}}, nil //nolint:exhaustruct
 			},
 		}
 
@@ -405,13 +405,13 @@ func TestDocumentService_FulltextSearch(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Document]{
 			Total: 1,
 			Results: []domain.Document{
-				{ID: 100, Title: "Search Result", SearchHit: &domain.SearchHit{Score: 1.5, Rank: 1}},
+				{ID: 100, Title: "Search Result", SearchHit: &domain.SearchHit{Score: 1.5, Rank: 1}}, //nolint:exhaustruct
 			},
 		}
 
 		var capturedParams domain.SearchDocumentsParams
 
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				capturedParams = params
 				return expected, nil
@@ -451,7 +451,7 @@ func TestDocumentService_FulltextSearch(t *testing.T) {
 	})
 
 	t.Run("error propagation", func(t *testing.T) {
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return nil, errMock
 			},
@@ -468,7 +468,7 @@ func TestDocumentService_FulltextSearch(t *testing.T) {
 	})
 
 	t.Run("empty query string", func(t *testing.T) {
-		repo := &mockDocRepo{
+		repo := &mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if params.Query != "" {
 					t.Errorf("expected empty query, got %q", params.Query)
@@ -501,7 +501,7 @@ func TestDocumentService_ErrorWrapping(t *testing.T) {
 		{
 			name: "Search",
 			method: func(svc *DocumentService, ctx context.Context) error {
-				_, err := svc.Search(ctx, domain.SearchDocumentsParams{Page: 1, PageSize: 10})
+				_, err := svc.Search(ctx, domain.SearchDocumentsParams{Page: 1, PageSize: 10}) //nolint:exhaustruct
 				return err
 			},
 			wantMsg: "search documents: mock error",
@@ -575,8 +575,8 @@ func TestCorrespondentService_Search(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Correspondent]{
 			Total: 2,
 			Results: []domain.Correspondent{
-				{ID: 1, Name: "Alice"},
-				{ID: 2, Name: "Bob"},
+				{ID: 1, Name: "Alice"}, //nolint:exhaustruct
+				{ID: 2, Name: "Bob"},   //nolint:exhaustruct
 			},
 		}
 
@@ -709,9 +709,9 @@ func TestTagService_List(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Tag]{
 			Total: 3,
 			Results: []domain.Tag{
-				{ID: 1, Name: "Important"},
-				{ID: 2, Name: "Urgent"},
-				{ID: 3, Name: "Review"},
+				{ID: 1, Name: "Important"}, //nolint:exhaustruct
+				{ID: 2, Name: "Urgent"},    //nolint:exhaustruct
+				{ID: 3, Name: "Review"},    //nolint:exhaustruct
 			},
 		}
 

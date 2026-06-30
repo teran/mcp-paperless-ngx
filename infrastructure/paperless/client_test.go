@@ -94,52 +94,52 @@ func assertAcceptHeader(t *testing.T, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 var sampleDocumentRaw = map[string]any{
-	"id":                  123,
-	"correspondent":       5,
-	"document_type":       2,
-	"storage_path":        nil,
-	"title":               "Bank Statement March 2024",
-	"content":             "Full OCR text content of the document...",
-	"tags":                []int{7, 12, 15},
-	"created":             "2024-03-15",
-	"created_date":        "2024-03-15",
-	"modified":            "2024-03-15T14:30:00+00:00",
-	"added":               "2024-03-15T10:00:00+00:00",
-	"deleted_at":          nil,
-	"archive_serial_number": 42,
-	"original_file_name":  "statement.pdf",
-	"archived_file_name":  "20240315_bank_statement.pdf",
-	"owner":              1,
-	"user_can_change":    true,
+	"id":                     123,
+	"correspondent":          5,
+	"document_type":          2,
+	"storage_path":           nil,
+	"title":                  "Bank Statement March 2024",
+	"content":                "Full OCR text content of the document...",
+	"tags":                   []int{7, 12, 15},
+	"created":                "2024-03-15",
+	"created_date":           "2024-03-15",
+	"modified":               "2024-03-15T14:30:00+00:00",
+	"added":                  "2024-03-15T10:00:00+00:00",
+	"deleted_at":             nil,
+	"archive_serial_number":  42,
+	"original_file_name":     "statement.pdf",
+	"archived_file_name":     "20240315_bank_statement.pdf",
+	"owner":                  1,
+	"user_can_change":        true,
 	"is_shared_by_requester": false,
-	"notes":              []any{},
-	"custom_fields":      []any{},
-	"page_count":         3,
-	"mime_type":          "application/pdf",
+	"notes":                  []any{},
+	"custom_fields":          []any{},
+	"page_count":             3,
+	"mime_type":              "application/pdf",
 }
 
 var sampleDocumentWithSearchHit = map[string]any{
-	"id":                  123,
-	"correspondent":       nil,
-	"document_type":       nil,
-	"storage_path":        nil,
-	"title":               "Bank Statement March 2024",
-	"content":             "Full OCR text content of the document...",
-	"tags":                []int{7},
-	"created":             "2024-03-15",
-	"created_date":        "2024-03-15",
-	"modified":            "2024-03-15T14:30:00+00:00",
-	"added":               "2024-03-15T10:00:00+00:00",
-	"archive_serial_number": nil,
-	"original_file_name":  "statement.pdf",
-	"archived_file_name":  nil,
-	"owner":              nil,
-	"page_count":         3,
-	"mime_type":          "application/pdf",
-	"user_can_change":    true,
+	"id":                     123,
+	"correspondent":          nil,
+	"document_type":          nil,
+	"storage_path":           nil,
+	"title":                  "Bank Statement March 2024",
+	"content":                "Full OCR text content of the document...",
+	"tags":                   []int{7},
+	"created":                "2024-03-15",
+	"created_date":           "2024-03-15",
+	"modified":               "2024-03-15T14:30:00+00:00",
+	"added":                  "2024-03-15T10:00:00+00:00",
+	"archive_serial_number":  nil,
+	"original_file_name":     "statement.pdf",
+	"archived_file_name":     nil,
+	"owner":                  nil,
+	"page_count":             3,
+	"mime_type":              "application/pdf",
+	"user_can_change":        true,
 	"is_shared_by_requester": false,
-	"notes":              []any{},
-	"custom_fields":      []any{},
+	"notes":                  []any{},
+	"custom_fields":          []any{},
 	"__search_hit__": map[string]any{
 		"score":      12.345,
 		"highlights": "text with <b>matched</b> terms highlighted",
@@ -148,39 +148,39 @@ var sampleDocumentWithSearchHit = map[string]any{
 }
 
 var sampleDocumentNullFields = map[string]any{
-	"id":                  456,
-	"correspondent":       nil,
-	"document_type":       nil,
-	"storage_path":        nil,
-	"title":               "Receipt",
-	"content":             "Some content",
-	"tags":                []int{},
-	"created":             "2024-04-01",
-	"created_date":        "2024-04-01",
-	"modified":            "2024-04-01T12:00:00+00:00",
-	"added":               "2024-04-01T12:00:00+00:00",
-	"deleted_at":          nil,
-	"archive_serial_number": nil,
-	"original_file_name":  "receipt.pdf",
-	"archived_file_name":  nil,
-	"owner":              nil,
-	"page_count":          nil,
-	"mime_type":          "application/pdf",
-	"user_can_change":    true,
+	"id":                     456,
+	"correspondent":          nil,
+	"document_type":          nil,
+	"storage_path":           nil,
+	"title":                  "Receipt",
+	"content":                "Some content",
+	"tags":                   []int{},
+	"created":                "2024-04-01",
+	"created_date":           "2024-04-01",
+	"modified":               "2024-04-01T12:00:00+00:00",
+	"added":                  "2024-04-01T12:00:00+00:00",
+	"deleted_at":             nil,
+	"archive_serial_number":  nil,
+	"original_file_name":     "receipt.pdf",
+	"archived_file_name":     nil,
+	"owner":                  nil,
+	"page_count":             nil,
+	"mime_type":              "application/pdf",
+	"user_can_change":        true,
 	"is_shared_by_requester": false,
-	"notes":              []any{},
-	"custom_fields":      []any{},
+	"notes":                  []any{},
+	"custom_fields":          []any{},
 }
 
 var sampleCorrespondentRaw = map[string]any{
-	"id":                   5,
-	"slug":                 "acme-corp",
-	"name":                 "Acme Corp",
-	"match":                "acme",
-	"matching_algorithm":   1,
-	"is_insensitive":       true,
-	"document_count":       23,
-	"last_correspondence":  "2024-06-15",
+	"id":                  5,
+	"slug":                "acme-corp",
+	"name":                "Acme Corp",
+	"match":               "acme",
+	"matching_algorithm":  1,
+	"is_insensitive":      true,
+	"document_count":      23,
+	"last_correspondence": "2024-06-15",
 	"owner":               1,
 	"user_can_change":     true,
 }
@@ -193,13 +193,13 @@ var sampleTagRaw = map[string]any{
 	"text_color":         "#000000",
 	"match":              "invoice",
 	"matching_algorithm": 1,
-	"is_insensitive":    true,
-	"is_inbox_tag":      false,
-	"document_count":    15,
-	"owner":             nil,
-	"user_can_change":   true,
-	"parent":            nil,
-	"children":          []any{},
+	"is_insensitive":     true,
+	"is_inbox_tag":       false,
+	"document_count":     15,
+	"owner":              nil,
+	"user_can_change":    true,
+	"parent":             nil,
+	"children":           []any{},
 }
 
 // paginatedResponse wraps results in the standard Paperless-ngx paginated format.
@@ -251,7 +251,7 @@ func TestClient_Search_WithQuery(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{
+	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		Query: "bank statement",
 	})
 	if err != nil {
@@ -309,7 +309,7 @@ func TestClient_Search_WithCorrespondentID(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{
+	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		CorrespondentID: 5,
 	})
 	if err != nil {
@@ -352,7 +352,7 @@ func TestClient_Search_WithTagIDs(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{
+	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		TagIDs: []int{7, 12, 15},
 	})
 	if err != nil {
@@ -382,7 +382,7 @@ func TestClient_Search_WithDateRange(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{
+	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		CreatedAfter:  "2024-01-01",
 		CreatedBefore: "2024-03-31",
 	})
@@ -419,7 +419,7 @@ func TestClient_Search_WithPagination(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{
+	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		Page:     3,
 		PageSize: 10,
 	})
@@ -455,7 +455,7 @@ func TestClient_Search_WithEmptyParams(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{})
+	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -478,7 +478,7 @@ func TestClient_Search_EmptyResults(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{
+	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		Query: "nonexistent",
 	})
 	if err != nil {
@@ -513,7 +513,7 @@ func TestClient_Search_RequestValidation(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{})
+	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -810,16 +810,16 @@ func TestClient_SearchCorrespondents_Pagination(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(paginatedResponse([]any{
 			sampleCorrespondentRaw,
 			map[string]any{
-				"id":                   8,
-				"slug":                 "xyz-llc",
-				"name":                 "XYZ LLC",
-				"match":                "",
-				"matching_algorithm":   0,
-				"is_insensitive":       false,
-				"document_count":       5,
-				"last_correspondence":  "2024-02-10",
+				"id":                  8,
+				"slug":                "xyz-llc",
+				"name":                "XYZ LLC",
+				"match":               "",
+				"matching_algorithm":  0,
+				"is_insensitive":      false,
+				"document_count":      5,
+				"last_correspondence": "2024-02-10",
 				"owner":               nil,
-				"user_can_change":      true,
+				"user_can_change":     true,
 			},
 		}))
 	})
@@ -1048,7 +1048,7 @@ func TestClient_Error_401(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{})
+	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("Search() expected error, got nil")
 	}
@@ -1082,7 +1082,7 @@ func TestClient_Error_NetworkError(t *testing.T) {
 	// Point at a server that will never respond (unreachable).
 	client := paperless.NewClient("http://127.0.0.1:1", "test-token")
 
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{})
+	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("Search() expected error for unreachable server, got nil")
 	}
@@ -1216,7 +1216,7 @@ func TestClient_Search_MalformedJSON(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{})
+	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("Search() expected error for malformed JSON, got nil")
 	}
@@ -1257,7 +1257,7 @@ func TestClient_Search_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := client.Search(ctx, domain.SearchDocumentsParams{})
+	_, err := client.Search(ctx, domain.SearchDocumentsParams{}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("Search() expected error for cancelled context, got nil")
 	}
@@ -1445,7 +1445,7 @@ func TestClient_Search_Status201(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{})
+	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -1506,7 +1506,7 @@ func TestClient_Search_ZeroPageDefaults(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{
+	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		Page:     0,
 		PageSize: 0,
 	})
@@ -1532,7 +1532,7 @@ func TestClient_Search_Status300_Rejected(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{})
+	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("expected error for HTTP 300")
 	}
@@ -1540,5 +1540,3 @@ func TestClient_Search_Status300_Rejected(t *testing.T) {
 		t.Errorf("error should wrap ErrAPIClient, got %T", err)
 	}
 }
-
-

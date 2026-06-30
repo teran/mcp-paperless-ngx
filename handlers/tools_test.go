@@ -14,7 +14,7 @@ import (
 // ============================================================
 
 type mockDocRepo struct {
-	searchFn func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error)
+	searchFn  func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error)
 	getByIDFn func(ctx context.Context, id int) (*domain.Document, error)
 }
 
@@ -59,7 +59,7 @@ func intPtr(v int) *int {
 // ============================================================
 
 var testDocs = []domain.Document{
-	{
+	{ //nolint:exhaustruct
 		ID:                  1,
 		Title:               "Invoice March 2024",
 		Content:             "This is the OCR text of the invoice.",
@@ -77,46 +77,46 @@ var testDocs = []domain.Document{
 		PageCount:           intPtr(3),
 		SearchHit:           &domain.SearchHit{Score: 12.345, Highlights: "OCR text of the invoice", Rank: 1},
 	},
-	{
-		ID:                  2,
-		Title:               "Contract Signed",
-		Content:             "Contract terms and conditions.",
-		Correspondent:       intPtr(5),
-		Tags:                []int{8},
-		Created:             "2024-06-01",
-		CreatedDate:         "2024-06-01",
-		Modified:            "2024-06-02T08:30:00Z",
-		Added:               "2024-06-02T09:00:00Z",
-		OriginalFileName:    "contract.pdf",
-		MimeType:            "application/pdf",
-		PageCount:           intPtr(5),
+	{ //nolint:exhaustruct
+		ID:               2,
+		Title:            "Contract Signed",
+		Content:          "Contract terms and conditions.",
+		Correspondent:    intPtr(5),
+		Tags:             []int{8},
+		Created:          "2024-06-01",
+		CreatedDate:      "2024-06-01",
+		Modified:         "2024-06-02T08:30:00Z",
+		Added:            "2024-06-02T09:00:00Z",
+		OriginalFileName: "contract.pdf",
+		MimeType:         "application/pdf",
+		PageCount:        intPtr(5),
 	},
-	{
-		ID:            3,
-		Title:         "Photo",
-		Content:       "A nice landscape photo.",
-		Tags:          []int{9},
-		Created:       "2024-09-10",
-		CreatedDate:   "2024-09-10",
-		Modified:      "2024-09-11T00:00:00Z",
-		Added:         "2024-09-11T00:00:00Z",
+	{ //nolint:exhaustruct
+		ID:               3,
+		Title:            "Photo",
+		Content:          "A nice landscape photo.",
+		Tags:             []int{9},
+		Created:          "2024-09-10",
+		CreatedDate:      "2024-09-10",
+		Modified:         "2024-09-11T00:00:00Z",
+		Added:            "2024-09-11T00:00:00Z",
 		OriginalFileName: "photo.png",
-		MimeType:      "image/png",
-		PageCount:     intPtr(1),
-		SearchHit:     &domain.SearchHit{Score: 5.0, Highlights: "landscape", Rank: 2},
+		MimeType:         "image/png",
+		PageCount:        intPtr(1),
+		SearchHit:        &domain.SearchHit{Score: 5.0, Highlights: "landscape", Rank: 2},
 	},
 }
 
 var testCorrespondents = []domain.Correspondent{
-	{ID: 1, Name: "Acme Corp", Slug: "acme-corp", DocumentCount: 10, MatchingAlgorithm: 1, IsInsensitive: true},
-	{ID: 2, Name: "Bob's Supplies", Slug: "bobs-supplies", DocumentCount: 5, MatchingAlgorithm: 1, IsInsensitive: false},
-	{ID: 3, Name: "Charlie & Co", Slug: "charlie-co", DocumentCount: 0, MatchingAlgorithm: 0, IsInsensitive: false},
+	{ID: 1, Name: "Acme Corp", Slug: "acme-corp", DocumentCount: 10, MatchingAlgorithm: 1, IsInsensitive: true},          //nolint:exhaustruct
+	{ID: 2, Name: "Bob's Supplies", Slug: "bobs-supplies", DocumentCount: 5, MatchingAlgorithm: 1, IsInsensitive: false}, //nolint:exhaustruct
+	{ID: 3, Name: "Charlie & Co", Slug: "charlie-co", DocumentCount: 0, MatchingAlgorithm: 0, IsInsensitive: false},      //nolint:exhaustruct
 }
 
 var testTags = []domain.Tag{
-	{ID: 1, Name: "Important", Slug: "important", Color: "red", DocumentCount: 12, IsInboxTag: false},
-	{ID: 2, Name: "Inbox", Slug: "inbox", Color: "blue", DocumentCount: 3, IsInboxTag: true},
-	{ID: 3, Name: "Review Later", Slug: "review-later", Color: "yellow", DocumentCount: 7, IsInboxTag: false},
+	{ID: 1, Name: "Important", Slug: "important", Color: "red", DocumentCount: 12, IsInboxTag: false},         //nolint:exhaustruct
+	{ID: 2, Name: "Inbox", Slug: "inbox", Color: "blue", DocumentCount: 3, IsInboxTag: true},                  //nolint:exhaustruct
+	{ID: 3, Name: "Review Later", Slug: "review-later", Color: "yellow", DocumentCount: 7, IsInboxTag: false}, //nolint:exhaustruct
 }
 
 var errMock = errors.New("mock error")
@@ -171,12 +171,12 @@ func TestToDocumentSummaries(t *testing.T) {
 		t.Parallel()
 
 		docs := []domain.Document{
-			{
+			{ //nolint:exhaustruct
 				ID: 1, Title: "Test", Correspondent: intPtr(5), Tags: []int{7},
 				Created: "2024-01-01", MimeType: "application/pdf",
 				ArchiveSerialNumber: intPtr(42), PageCount: intPtr(3),
 			},
-			{
+			{ //nolint:exhaustruct
 				ID: 2, Title: "No extras", Created: "2024-02-02", MimeType: "image/png",
 			},
 		}
@@ -253,7 +253,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 	t.Run("success with no filters", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if params.Query != "" {
 					t.Errorf("expected empty query, got %q", params.Query)
@@ -266,7 +266,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 		})
 
 		handler := NewSearchDocumentsHandler(svc)
-		_, output, err := handler(ctx(), nil, SearchDocumentsInput{})
+		_, output, err := handler(ctx(), nil, SearchDocumentsInput{}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -284,7 +284,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 	t.Run("success with all filters", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if params.Query != "invoice" {
 					t.Errorf("expected query=%q, got %q", "invoice", params.Query)
@@ -344,7 +344,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 	t.Run("pagination defaults applied", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if params.Page != 1 {
 					t.Errorf("expected default page=1, got %d", params.Page)
@@ -357,7 +357,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 		})
 
 		handler := NewSearchDocumentsHandler(svc)
-		_, output, err := handler(ctx(), nil, SearchDocumentsInput{Page: 0, PageSize: 0})
+		_, output, err := handler(ctx(), nil, SearchDocumentsInput{Page: 0, PageSize: 0}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -369,14 +369,14 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 	t.Run("empty results", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return &domain.PaginatedResult[domain.Document]{Total: 0, Results: []domain.Document{}}, nil
 			},
 		})
 
 		handler := NewSearchDocumentsHandler(svc)
-		_, output, err := handler(ctx(), nil, SearchDocumentsInput{Query: "nonexistent"})
+		_, output, err := handler(ctx(), nil, SearchDocumentsInput{Query: "nonexistent"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -391,14 +391,14 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 	t.Run("error propagation", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return nil, errMock
 			},
 		})
 
 		handler := NewSearchDocumentsHandler(svc)
-		_, _, err := handler(ctx(), nil, SearchDocumentsInput{Query: "fail"})
+		_, _, err := handler(ctx(), nil, SearchDocumentsInput{Query: "fail"}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -410,7 +410,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 	t.Run("result fields mapped correctly", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return &domain.PaginatedResult[domain.Document]{
 					Total:   2,
@@ -420,7 +420,7 @@ func TestNewSearchDocumentsHandler(t *testing.T) {
 		})
 
 		handler := NewSearchDocumentsHandler(svc)
-		_, output, err := handler(ctx(), nil, SearchDocumentsInput{})
+		_, output, err := handler(ctx(), nil, SearchDocumentsInput{}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -476,7 +476,7 @@ func TestNewGetDocumentContentHandler(t *testing.T) {
 	t.Run("existing document", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			getByIDFn: func(ctx context.Context, id int) (*domain.Document, error) {
 				if id != 1 {
 					t.Errorf("expected id=1, got %d", id)
@@ -534,7 +534,7 @@ func TestNewGetDocumentContentHandler(t *testing.T) {
 	t.Run("non-existing document", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			getByIDFn: func(ctx context.Context, id int) (*domain.Document, error) {
 				return nil, errors.New("document not found")
 			},
@@ -553,7 +553,7 @@ func TestNewGetDocumentContentHandler(t *testing.T) {
 	t.Run("error propagation", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			getByIDFn: func(ctx context.Context, id int) (*domain.Document, error) {
 				return nil, errMock
 			},
@@ -572,13 +572,13 @@ func TestNewGetDocumentContentHandler(t *testing.T) {
 	t.Run("document with minimal fields", func(t *testing.T) {
 		t.Parallel()
 
-		minimalDoc := &domain.Document{
+		minimalDoc := &domain.Document{ //nolint:exhaustruct
 			ID: 99, Title: "Minimal", Content: "Minimal content",
 			Created: "2024-01-01", Modified: "2024-01-01", Added: "2024-01-01",
 			OriginalFileName: "minimal.txt", MimeType: "text/plain",
 		}
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			getByIDFn: func(ctx context.Context, id int) (*domain.Document, error) {
 				return minimalDoc, nil
 			},
@@ -631,7 +631,7 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) {
 		})
 
 		handler := NewSearchCorrespondentsHandler(svc)
-		_, output, err := handler(ctx(), nil, SearchCorrespondentsInput{Query: "acme"})
+		_, output, err := handler(ctx(), nil, SearchCorrespondentsInput{Query: "acme"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -671,7 +671,7 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) {
 		})
 
 		handler := NewSearchCorrespondentsHandler(svc)
-		_, output, err := handler(ctx(), nil, SearchCorrespondentsInput{Query: ""})
+		_, output, err := handler(ctx(), nil, SearchCorrespondentsInput{Query: ""}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -727,7 +727,7 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) {
 		})
 
 		handler := NewSearchCorrespondentsHandler(svc)
-		_, _, err := handler(ctx(), nil, SearchCorrespondentsInput{Query: ""})
+		_, _, err := handler(ctx(), nil, SearchCorrespondentsInput{Query: ""}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -743,7 +743,7 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) {
 		})
 
 		handler := NewSearchCorrespondentsHandler(svc)
-		_, output, err := handler(ctx(), nil, SearchCorrespondentsInput{Query: "zzz"})
+		_, output, err := handler(ctx(), nil, SearchCorrespondentsInput{Query: "zzz"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -762,7 +762,7 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) {
 		})
 
 		handler := NewSearchCorrespondentsHandler(svc)
-		_, _, err := handler(ctx(), nil, SearchCorrespondentsInput{Query: "fail"})
+		_, _, err := handler(ctx(), nil, SearchCorrespondentsInput{Query: "fail"}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -782,7 +782,7 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if params.CorrespondentID != 5 {
 					t.Errorf("expected correspondent_id=5, got %d", params.CorrespondentID)
@@ -795,7 +795,7 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 		})
 
 		handler := NewGetDocumentsByCorrespondentHandler(svc)
-		_, output, err := handler(ctx(), nil, GetDocumentsByCorrespondentInput{CorrespondentID: 5})
+		_, output, err := handler(ctx(), nil, GetDocumentsByCorrespondentInput{CorrespondentID: 5}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -813,7 +813,7 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 	t.Run("pagination", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if params.Page != 3 {
 					t.Errorf("expected page=3, got %d", params.Page)
@@ -842,14 +842,14 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 	t.Run("no results", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return &domain.PaginatedResult[domain.Document]{Total: 0, Results: []domain.Document{}}, nil
 			},
 		})
 
 		handler := NewGetDocumentsByCorrespondentHandler(svc)
-		_, output, err := handler(ctx(), nil, GetDocumentsByCorrespondentInput{CorrespondentID: 999})
+		_, output, err := handler(ctx(), nil, GetDocumentsByCorrespondentInput{CorrespondentID: 999}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -861,14 +861,14 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 	t.Run("error propagation", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return nil, errMock
 			},
 		})
 
 		handler := NewGetDocumentsByCorrespondentHandler(svc)
-		_, _, err := handler(ctx(), nil, GetDocumentsByCorrespondentInput{CorrespondentID: 1})
+		_, _, err := handler(ctx(), nil, GetDocumentsByCorrespondentInput{CorrespondentID: 1}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -898,7 +898,7 @@ func TestNewListTagsHandler(t *testing.T) {
 		})
 
 		handler := NewListTagsHandler(svc)
-		_, output, err := handler(ctx(), nil, ListTagsInput{})
+		_, output, err := handler(ctx(), nil, ListTagsInput{}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -926,7 +926,7 @@ func TestNewListTagsHandler(t *testing.T) {
 		})
 
 		handler := NewListTagsHandler(svc)
-		_, output, err := handler(ctx(), nil, ListTagsInput{Query: "Inbox"})
+		_, output, err := handler(ctx(), nil, ListTagsInput{Query: "Inbox"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -969,7 +969,7 @@ func TestNewListTagsHandler(t *testing.T) {
 		})
 
 		handler := NewListTagsHandler(svc)
-		_, _, err := handler(ctx(), nil, ListTagsInput{})
+		_, _, err := handler(ctx(), nil, ListTagsInput{}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -994,7 +994,7 @@ func TestNewListTagsHandler(t *testing.T) {
 		})
 
 		handler := NewListTagsHandler(svc)
-		_, output, err := handler(ctx(), nil, ListTagsInput{Page: 2, PageSize: 50})
+		_, output, err := handler(ctx(), nil, ListTagsInput{Page: 2, PageSize: 50}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1013,7 +1013,7 @@ func TestNewListTagsHandler(t *testing.T) {
 		})
 
 		handler := NewListTagsHandler(svc)
-		_, output, err := handler(ctx(), nil, ListTagsInput{Query: "nonexistent"})
+		_, output, err := handler(ctx(), nil, ListTagsInput{Query: "nonexistent"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1032,7 +1032,7 @@ func TestNewListTagsHandler(t *testing.T) {
 		})
 
 		handler := NewListTagsHandler(svc)
-		_, _, err := handler(ctx(), nil, ListTagsInput{})
+		_, _, err := handler(ctx(), nil, ListTagsInput{}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -1052,7 +1052,7 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if len(params.TagIDs) != 1 || params.TagIDs[0] != 7 {
 					t.Errorf("expected tag_ids=[7], got %v", params.TagIDs)
@@ -1065,7 +1065,7 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 		})
 
 		handler := NewGetDocumentsByTagHandler(svc)
-		_, output, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 7})
+		_, output, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 7}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1083,7 +1083,7 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 	t.Run("pagination", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if params.Page != 2 {
 					t.Errorf("expected page=2, got %d", params.Page)
@@ -1108,14 +1108,14 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 	t.Run("no results", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return &domain.PaginatedResult[domain.Document]{Total: 0, Results: []domain.Document{}}, nil
 			},
 		})
 
 		handler := NewGetDocumentsByTagHandler(svc)
-		_, output, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 999})
+		_, output, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 999}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1127,14 +1127,14 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 	t.Run("error propagation", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return nil, errMock
 			},
 		})
 
 		handler := NewGetDocumentsByTagHandler(svc)
-		_, _, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 1})
+		_, _, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 1}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -1154,7 +1154,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 	t.Run("success with query", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if params.Query != "invoice" {
 					t.Errorf("expected query=%q, got %q", "invoice", params.Query)
@@ -1167,7 +1167,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 		})
 
 		handler := NewFulltextSearchHandler(svc)
-		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "invoice"})
+		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "invoice"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1185,7 +1185,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 	t.Run("highlights from search hit", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return &domain.PaginatedResult[domain.Document]{
 					Total:   1,
@@ -1195,7 +1195,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 		})
 
 		handler := NewFulltextSearchHandler(svc)
-		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "invoice"})
+		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "invoice"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1226,7 +1226,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 	t.Run("nil search hit yields empty highlights", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return &domain.PaginatedResult[domain.Document]{
 					Total:   1,
@@ -1236,7 +1236,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 		})
 
 		handler := NewFulltextSearchHandler(svc)
-		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "contract"})
+		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "contract"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1251,7 +1251,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 	t.Run("pagination defaults", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if params.Page != 1 {
 					t.Errorf("expected page=1, got %d", params.Page)
@@ -1264,7 +1264,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 		})
 
 		handler := NewFulltextSearchHandler(svc)
-		_, _, err := handler(ctx(), nil, FulltextSearchInput{Query: "test"})
+		_, _, err := handler(ctx(), nil, FulltextSearchInput{Query: "test"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1273,7 +1273,7 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 	t.Run("pagination passed through", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				if params.Page != 3 {
 					t.Errorf("expected page=3, got %d", params.Page)
@@ -1298,14 +1298,14 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 	t.Run("empty results", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return &domain.PaginatedResult[domain.Document]{Total: 0, Results: []domain.Document{}}, nil
 			},
 		})
 
 		handler := NewFulltextSearchHandler(svc)
-		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "nonexistent"})
+		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "nonexistent"}) //nolint:exhaustruct
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1317,14 +1317,14 @@ func TestNewFulltextSearchHandler(t *testing.T) {
 	t.Run("error propagation", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewDocumentService(&mockDocRepo{
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
 			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return nil, errMock
 			},
 		})
 
 		handler := NewFulltextSearchHandler(svc)
-		_, _, err := handler(ctx(), nil, FulltextSearchInput{Query: "fail"})
+		_, _, err := handler(ctx(), nil, FulltextSearchInput{Query: "fail"}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
