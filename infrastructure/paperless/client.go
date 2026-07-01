@@ -259,7 +259,7 @@ func (c *Client) doRequest(ctx context.Context, path string, query url.Values) (
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API status=%d body=%s: %w", resp.StatusCode, string(body), ErrAPIClient)
+		return nil, fmt.Errorf("API status=%d: %w", resp.StatusCode, ErrAPIClient)
 	}
 
 	return body, nil

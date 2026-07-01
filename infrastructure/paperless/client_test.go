@@ -1903,8 +1903,8 @@ func TestClient_Error_ErrorMessageContainsStatusCode(t *testing.T) {
 	if !strings.Contains(errStr, "404") {
 		t.Errorf("error message does not contain status code 404: %q", errStr)
 	}
-	if !strings.Contains(errStr, "Not found") {
-		t.Errorf("error message does not contain body: %q", errStr)
+	if strings.Contains(errStr, "Not found") {
+		t.Errorf("error message should NOT contain response body (security): %q", errStr)
 	}
 }
 
