@@ -175,6 +175,18 @@ var sampleTagRaw = map[string]any{ //nolint:gochecknoglobals
 	"children":           []any{},
 }
 
+var sampleDocumentTypeRaw = map[string]any{ //nolint:gochecknoglobals
+	"id":                 2,
+	"slug":               "invoice", //nolint:goconst
+	"name":               "Invoice", //nolint:goconst
+	"match":              "invoice",
+	"matching_algorithm": 1,    //nolint:goconst
+	"is_insensitive":     true, //nolint:goconst
+	"document_count":     15,   //nolint:goconst
+	"owner":              1,
+	"user_can_change":    true, //nolint:goconst
+}
+
 // paginatedResponse wraps results in the standard Paperless-ngx paginated format.
 func paginatedResponse(results []any) map[string]any {
 	ids := make([]int, 0, len(results))
@@ -1398,6 +1410,447 @@ func TestClient_TagRepo_List(t *testing.T) {
 	}
 	if result.Results[0].Name != "Invoice" {
 		t.Errorf("Name = %q, want %q", result.Results[0].Name, "Invoice")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Client.GetCorrespondentByID
+// ---------------------------------------------------------------------------
+
+func TestClient_GetCorrespondentByID_Existing(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		assertAuthHeader(t, r)
+		assertAcceptHeader(t, r)
+
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %s, want GET", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/api/correspondents/5/") {
+			t.Errorf("path = %s, want /api/correspondents/5/", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(sampleCorrespondentRaw)
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	corr, err := client.GetCorrespondentByID(context.Background(), 5)
+	if err != nil {
+		t.Fatalf("GetCorrespondentByID() error = %v", err)
+	}
+	if corr.ID != 5 {
+		t.Errorf("corr.ID = %d, want 5", corr.ID)
+	}
+	if corr.Name != "Acme Corp" {
+		t.Errorf("corr.Name = %q, want %q", corr.Name, "Acme Corp")
+	}
+	if corr.Slug != "acme-corp" {
+		t.Errorf("corr.Slug = %q, want %q", corr.Slug, "acme-corp")
+	}
+	if corr.Match != "acme" {
+		t.Errorf("corr.Match = %q, want %q", corr.Match, "acme")
+	}
+	if corr.MatchingAlgorithm != 1 {
+		t.Errorf("corr.MatchingAlgorithm = %d, want 1", corr.MatchingAlgorithm)
+	}
+	if !corr.IsInsensitive {
+		t.Errorf("corr.IsInsensitive = false, want true")
+	}
+	if corr.DocumentCount != 23 {
+		t.Errorf("corr.DocumentCount = %d, want 23", corr.DocumentCount)
+	}
+	if corr.LastCorrespondence != "2024-06-15" {
+		t.Errorf("corr.LastCorrespondence = %q, want %q", corr.LastCorrespondence, "2024-06-15")
+	}
+	if corr.Owner == nil || *corr.Owner != 1 {
+		t.Errorf("corr.Owner = %v, want 1", corr.Owner)
+	}
+	if !corr.UserCanChange {
+		t.Errorf("corr.UserCanChange = false, want true")
+	}
+}
+
+func TestClient_GetCorrespondentByID_NotFound(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"detail":"Not found"}`))
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	_, err := client.GetCorrespondentByID(context.Background(), 999)
+	if err == nil {
+		t.Fatal("GetCorrespondentByID() expected error, got nil")
+	}
+	if !errors.Is(err, paperless.ErrAPIClient) {
+		t.Errorf("error does not wrap ErrAPIClient: %v", err)
+	}
+}
+
+func TestClient_GetCorrespondentByID_MalformedJSON(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{invalid json`))
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	_, err := client.GetCorrespondentByID(context.Background(), 5)
+	if err == nil {
+		t.Fatal("GetCorrespondentByID() expected error for malformed JSON, got nil")
+	}
+}
+
+func TestClient_GetCorrespondentByID_ContextCancelled(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := client.GetCorrespondentByID(ctx, 5)
+	if err == nil {
+		t.Fatal("GetCorrespondentByID() expected error for cancelled context, got nil")
+	}
+}
+
+func TestClient_GetCorrespondentByID_Error_401(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"detail":"Invalid token"}`))
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	_, err := client.GetCorrespondentByID(context.Background(), 5)
+	if err == nil {
+		t.Fatal("GetCorrespondentByID() expected error, got nil")
+	}
+	if !errors.Is(err, paperless.ErrAPIClient) {
+		t.Errorf("error does not wrap ErrAPIClient: %v", err)
+	}
+}
+
+func TestClient_GetCorrespondentByID_Error_500(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`Server Error`))
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	_, err := client.GetCorrespondentByID(context.Background(), 5)
+	if err == nil {
+		t.Fatal("GetCorrespondentByID() expected error, got nil")
+	}
+	if !errors.Is(err, paperless.ErrAPIClient) {
+		t.Errorf("error does not wrap ErrAPIClient: %v", err)
+	}
+}
+
+func TestClient_GetCorrespondentByID_NetworkError(t *testing.T) {
+	t.Parallel()
+
+	client := paperless.NewClient("http://127.0.0.1:1", "test-token")
+
+	_, err := client.GetCorrespondentByID(context.Background(), 5)
+	if err == nil {
+		t.Fatal("GetCorrespondentByID() expected error for unreachable server, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Client.GetDocumentTypeByID
+// ---------------------------------------------------------------------------
+
+func TestClient_GetDocumentTypeByID_Existing(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		assertAuthHeader(t, r)
+		assertAcceptHeader(t, r)
+
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %s, want GET", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/api/document_types/2/") {
+			t.Errorf("path = %s, want /api/document_types/2/", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(sampleDocumentTypeRaw)
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	dt, err := client.GetDocumentTypeByID(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("GetDocumentTypeByID() error = %v", err)
+	}
+	if dt.ID != 2 {
+		t.Errorf("dt.ID = %d, want 2", dt.ID)
+	}
+	if dt.Slug != "invoice" {
+		t.Errorf("dt.Slug = %q, want %q", dt.Slug, "invoice")
+	}
+	if dt.Name != "Invoice" {
+		t.Errorf("dt.Name = %q, want %q", dt.Name, "Invoice")
+	}
+	if dt.Match != "invoice" {
+		t.Errorf("dt.Match = %q, want %q", dt.Match, "invoice")
+	}
+	if dt.MatchingAlgorithm != 1 {
+		t.Errorf("dt.MatchingAlgorithm = %d, want 1", dt.MatchingAlgorithm)
+	}
+	if !dt.IsInsensitive {
+		t.Errorf("dt.IsInsensitive = false, want true")
+	}
+	if dt.DocumentCount != 15 {
+		t.Errorf("dt.DocumentCount = %d, want 15", dt.DocumentCount)
+	}
+	if dt.Owner == nil || *dt.Owner != 1 {
+		t.Errorf("dt.Owner = %v, want 1", dt.Owner)
+	}
+	if !dt.UserCanChange {
+		t.Errorf("dt.UserCanChange = false, want true")
+	}
+}
+
+func TestClient_GetDocumentTypeByID_NotFound(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"detail":"Not found"}`))
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	_, err := client.GetDocumentTypeByID(context.Background(), 999)
+	if err == nil {
+		t.Fatal("GetDocumentTypeByID() expected error, got nil")
+	}
+	if !errors.Is(err, paperless.ErrAPIClient) {
+		t.Errorf("error does not wrap ErrAPIClient: %v", err)
+	}
+}
+
+func TestClient_GetDocumentTypeByID_MalformedJSON(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{invalid json`))
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	_, err := client.GetDocumentTypeByID(context.Background(), 2)
+	if err == nil {
+		t.Fatal("GetDocumentTypeByID() expected error for malformed JSON, got nil")
+	}
+}
+
+func TestClient_GetDocumentTypeByID_ContextCancelled(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := client.GetDocumentTypeByID(ctx, 2)
+	if err == nil {
+		t.Fatal("GetDocumentTypeByID() expected error for cancelled context, got nil")
+	}
+}
+
+func TestClient_GetDocumentTypeByID_Error_401(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"detail":"Invalid token"}`))
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	_, err := client.GetDocumentTypeByID(context.Background(), 2)
+	if err == nil {
+		t.Fatal("GetDocumentTypeByID() expected error, got nil")
+	}
+	if !errors.Is(err, paperless.ErrAPIClient) {
+		t.Errorf("error does not wrap ErrAPIClient: %v", err)
+	}
+}
+
+func TestClient_GetDocumentTypeByID_Error_500(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`Server Error`))
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	_, err := client.GetDocumentTypeByID(context.Background(), 2)
+	if err == nil {
+		t.Fatal("GetDocumentTypeByID() expected error, got nil")
+	}
+	if !errors.Is(err, paperless.ErrAPIClient) {
+		t.Errorf("error does not wrap ErrAPIClient: %v", err)
+	}
+}
+
+func TestClient_GetDocumentTypeByID_NetworkError(t *testing.T) {
+	t.Parallel()
+
+	client := paperless.NewClient("http://127.0.0.1:1", "test-token")
+
+	_, err := client.GetDocumentTypeByID(context.Background(), 2)
+	if err == nil {
+		t.Fatal("GetDocumentTypeByID() expected error for unreachable server, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Adapter types: CorrespondentRepo.GetByID, DocumentTypeRepo
+// ---------------------------------------------------------------------------
+
+func TestClient_CorrespondentRepo_GetByID(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/api/correspondents/5/") {
+			t.Errorf("path = %s, want /api/correspondents/5/", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(sampleCorrespondentRaw)
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	repo := paperless.NewCorrespondentRepo(client)
+
+	corr, err := repo.GetByID(context.Background(), 5)
+	if err != nil {
+		t.Fatalf("CorrespondentRepo.GetByID() error = %v", err)
+	}
+	if corr.ID != 5 {
+		t.Errorf("corr.ID = %d, want 5", corr.ID)
+	}
+	if corr.Name != "Acme Corp" {
+		t.Errorf("corr.Name = %q, want %q", corr.Name, "Acme Corp")
+	}
+}
+
+func TestClient_CorrespondentRepo_GetByID_NotFound(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"detail":"Not found"}`))
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	repo := paperless.NewCorrespondentRepo(client)
+
+	_, err := repo.GetByID(context.Background(), 999)
+	if err == nil {
+		t.Fatal("CorrespondentRepo.GetByID() expected error, got nil")
+	}
+	if !errors.Is(err, paperless.ErrAPIClient) {
+		t.Errorf("error does not wrap ErrAPIClient: %v", err)
+	}
+}
+
+func TestClient_DocumentTypeRepo_New(t *testing.T) {
+	t.Parallel()
+
+	client := newClient("http://example.com")
+	repo := paperless.NewDocumentTypeRepo(client)
+	if repo == nil {
+		t.Fatal("NewDocumentTypeRepo() returned nil")
+	}
+}
+
+func TestClient_DocumentTypeRepo_GetByID(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/api/document_types/2/") {
+			t.Errorf("path = %s, want /api/document_types/2/", r.URL.Path)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(sampleDocumentTypeRaw)
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	repo := paperless.NewDocumentTypeRepo(client)
+
+	dt, err := repo.GetByID(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("DocumentTypeRepo.GetByID() error = %v", err)
+	}
+	if dt.ID != 2 {
+		t.Errorf("dt.ID = %d, want 2", dt.ID)
+	}
+	if dt.Name != "Invoice" {
+		t.Errorf("dt.Name = %q, want %q", dt.Name, "Invoice")
+	}
+}
+
+func TestClient_DocumentTypeRepo_GetByID_NotFound(t *testing.T) {
+	t.Parallel()
+
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"detail":"Not found"}`))
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	repo := paperless.NewDocumentTypeRepo(client)
+
+	_, err := repo.GetByID(context.Background(), 999)
+	if err == nil {
+		t.Fatal("DocumentTypeRepo.GetByID() expected error, got nil")
+	}
+	if !errors.Is(err, paperless.ErrAPIClient) {
+		t.Errorf("error does not wrap ErrAPIClient: %v", err)
 	}
 }
 

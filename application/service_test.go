@@ -54,6 +54,18 @@ func (m *mockTagRepo) List(ctx context.Context, query string, page, pageSize int
 	return m.listFn(ctx, query, page, pageSize)
 }
 
+// mockDocumentTypeRepo implements domain.DocumentTypeRepository for testing.
+type mockDocumentTypeRepo struct {
+	getByIDFn func(ctx context.Context, id int) (*domain.DocumentType, error)
+}
+
+func (m *mockDocumentTypeRepo) GetByID(ctx context.Context, id int) (*domain.DocumentType, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, id)
+	}
+	return nil, errMock
+}
+
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
@@ -71,6 +83,8 @@ func ptrInt(v int) *int {
 // ---------------------------------------------------------------------------
 
 func TestDocumentService_Search(t *testing.T) {
+	t.Parallel()
+
 	t.Run("success", func(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Document]{
 			Total: 2,
@@ -168,6 +182,8 @@ func TestDocumentService_Search(t *testing.T) {
 }
 
 func TestDocumentService_GetByID(t *testing.T) {
+	t.Parallel()
+
 	t.Run("success", func(t *testing.T) {
 		expected := &domain.Document{ID: 42, Title: "The Answer"} //nolint:exhaustruct
 		called := false
@@ -231,6 +247,8 @@ func TestDocumentService_GetByID(t *testing.T) {
 }
 
 func TestDocumentService_GetByCorrespondent(t *testing.T) {
+	t.Parallel()
+
 	t.Run("success", func(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Document]{
 			Total: 1,
@@ -319,6 +337,8 @@ func TestDocumentService_GetByCorrespondent(t *testing.T) {
 }
 
 func TestDocumentService_GetByTag(t *testing.T) {
+	t.Parallel()
+
 	t.Run("success", func(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Document]{
 			Total: 2,
@@ -405,6 +425,8 @@ func TestDocumentService_GetByTag(t *testing.T) {
 }
 
 func TestDocumentService_FulltextSearch(t *testing.T) {
+	t.Parallel()
+
 	t.Run("success", func(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Document]{
 			Total: 1,
@@ -497,6 +519,8 @@ func TestDocumentService_FulltextSearch(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDocumentService_ErrorWrapping(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		method  func(svc *DocumentService, ctx context.Context) error
@@ -575,6 +599,8 @@ func TestDocumentService_ErrorWrapping(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCorrespondentService_Search(t *testing.T) { //nolint:gocognit
+	t.Parallel()
+
 	t.Run("success", func(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Correspondent]{
 			Total: 2,
@@ -714,6 +740,8 @@ func TestCorrespondentService_Search(t *testing.T) { //nolint:gocognit
 // ---------------------------------------------------------------------------
 
 func TestTagService_List(t *testing.T) { //nolint:gocognit
+	t.Parallel()
+
 	t.Run("success", func(t *testing.T) {
 		expected := &domain.PaginatedResult[domain.Tag]{
 			Total: 3,
@@ -842,4 +870,288 @@ func TestTagService_List(t *testing.T) { //nolint:gocognit
 			t.Errorf("unexpected error message: %q", err.Error())
 		}
 	})
+}
+
+// ---------------------------------------------------------------------------
+// DocumentTypeService tests
+// ---------------------------------------------------------------------------
+
+var sampleDocumentType = &domain.DocumentType{ //nolint:gochecknoglobals
+	ID:                2,
+	Slug:              "invoice",
+	Name:              "Invoice",
+	Match:             "invoice",
+	MatchingAlgorithm: 1,
+	IsInsensitive:     true,
+	DocumentCount:     15,
+	Owner:             ptrInt(1),
+	UserCanChange:     true,
+}
+
+func TestDocumentTypeService_New(t *testing.T) {
+	t.Run("NewDocumentTypeService returns non-nil", func(t *testing.T) {
+		repo := &mockDocumentTypeRepo{} //nolint:exhaustruct
+		svc := NewDocumentTypeService(repo)
+		if svc == nil {
+			t.Fatal("NewDocumentTypeService() returned nil")
+		}
+	})
+}
+
+func TestDocumentTypeService_GetByID(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		repo := &mockDocumentTypeRepo{ //nolint:exhaustruct
+			getByIDFn: func(ctx context.Context, id int) (*domain.DocumentType, error) {
+				if id != 2 {
+					t.Errorf("expected id=2, got %d", id)
+				}
+				return sampleDocumentType, nil
+			},
+		}
+
+		svc := NewDocumentTypeService(repo)
+		dt, err := svc.GetByID(ctx(), 2)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dt.ID != 2 || dt.Name != "Invoice" {
+			t.Errorf("got %+v, want %+v", dt, sampleDocumentType)
+		}
+	})
+
+	t.Run("error propagation", func(t *testing.T) {
+		repo := &mockDocumentTypeRepo{ //nolint:exhaustruct
+			getByIDFn: func(ctx context.Context, id int) (*domain.DocumentType, error) {
+				return nil, errMock
+			},
+		}
+
+		svc := NewDocumentTypeService(repo)
+		_, err := svc.GetByID(ctx(), 99)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !errors.Is(err, errMock) {
+			t.Errorf("expected wrapping of %v, got %v", errMock, err)
+		}
+	})
+
+	t.Run("nil result", func(t *testing.T) {
+		repo := &mockDocumentTypeRepo{ //nolint:exhaustruct
+			getByIDFn: func(ctx context.Context, id int) (*domain.DocumentType, error) {
+				return nil, nil //nolint:nilnil
+			},
+		}
+
+		svc := NewDocumentTypeService(repo)
+		dt, err := svc.GetByID(ctx(), 999)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dt != nil {
+			t.Errorf("expected nil document type, got %+v", dt)
+		}
+	})
+
+	t.Run("error message wrapping", func(t *testing.T) {
+		repo := &mockDocumentTypeRepo{ //nolint:exhaustruct
+			getByIDFn: func(ctx context.Context, id int) (*domain.DocumentType, error) {
+				return nil, errMock
+			},
+		}
+
+		svc := NewDocumentTypeService(repo)
+		_, err := svc.GetByID(ctx(), 1)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.Error() != "get document type: mock error" {
+			t.Errorf("unexpected error message: %q", err.Error())
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// CorrespondentService.GetByID tests
+// ---------------------------------------------------------------------------
+
+func TestCorrespondentService_GetByID(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		expected := &domain.Correspondent{ID: 5, Name: "Acme Corp"} //nolint:exhaustruct
+		called := false
+
+		repo := &mockCorrespondentRepo{
+			getByIDFn: func(ctx context.Context, id int) (*domain.Correspondent, error) {
+				called = true
+				if id != 5 {
+					t.Errorf("expected id=5, got %d", id)
+				}
+				return expected, nil
+			},
+			searchFn: nil,
+		}
+
+		svc := NewCorrespondentService(repo)
+		corr, err := svc.GetByID(ctx(), 5)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !called {
+			t.Error("expected repo.GetByID to be called")
+		}
+		if corr.ID != expected.ID || corr.Name != expected.Name {
+			t.Errorf("got %+v, want %+v", corr, expected)
+		}
+	})
+
+	t.Run("error propagation", func(t *testing.T) {
+		repo := &mockCorrespondentRepo{
+			getByIDFn: func(ctx context.Context, id int) (*domain.Correspondent, error) {
+				return nil, errMock
+			},
+			searchFn: nil,
+		}
+
+		svc := NewCorrespondentService(repo)
+		_, err := svc.GetByID(ctx(), 99)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !errors.Is(err, errMock) {
+			t.Errorf("expected wrapping of %v, got %v", errMock, err)
+		}
+	})
+
+	t.Run("nil result", func(t *testing.T) {
+		repo := &mockCorrespondentRepo{
+			getByIDFn: func(ctx context.Context, id int) (*domain.Correspondent, error) {
+				return nil, nil //nolint:nilnil
+			},
+			searchFn: nil,
+		}
+
+		svc := NewCorrespondentService(repo)
+		corr, err := svc.GetByID(ctx(), 999)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if corr != nil {
+			t.Errorf("expected nil correspondent, got %+v", corr)
+		}
+	})
+
+	t.Run("error message wrapping", func(t *testing.T) {
+		repo := &mockCorrespondentRepo{
+			getByIDFn: func(ctx context.Context, id int) (*domain.Correspondent, error) {
+				return nil, errMock
+			},
+			searchFn: nil,
+		}
+
+		svc := NewCorrespondentService(repo)
+		_, err := svc.GetByID(ctx(), 1)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if err.Error() != "get correspondent: mock error" {
+			t.Errorf("unexpected error message: %q", err.Error())
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// CorrespondentService — error message wrapping (GetByID)
+// ---------------------------------------------------------------------------
+
+func TestCorrespondentService_ErrorWrapping(t *testing.T) {
+	tests := []struct {
+		name    string
+		method  func(svc *CorrespondentService, ctx context.Context) error
+		wantMsg string
+	}{
+		{
+			name: "Search",
+			method: func(svc *CorrespondentService, ctx context.Context) error {
+				_, err := svc.Search(ctx, "test", 1, 10)
+				return err
+			},
+			wantMsg: "search correspondents: mock error",
+		},
+		{
+			name: "GetByID",
+			method: func(svc *CorrespondentService, ctx context.Context) error {
+				_, err := svc.GetByID(ctx, 5)
+				return err
+			},
+			wantMsg: "get correspondent: mock error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &mockCorrespondentRepo{
+				searchFn: func(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Correspondent], error) {
+					return nil, errMock
+				},
+				getByIDFn: func(ctx context.Context, id int) (*domain.Correspondent, error) {
+					return nil, errMock
+				},
+			}
+
+			svc := NewCorrespondentService(repo)
+			err := tt.method(svc, ctx())
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if err.Error() != tt.wantMsg {
+				t.Errorf("expected error message %q, got %q", tt.wantMsg, err.Error())
+			}
+			if !errors.Is(err, errMock) {
+				t.Errorf("expected %v to wrap %v", err, errMock)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// DocumentTypeService — error message wrapping
+// ---------------------------------------------------------------------------
+
+func TestDocumentTypeService_ErrorWrapping(t *testing.T) {
+	tests := []struct {
+		name    string
+		method  func(svc *DocumentTypeService, ctx context.Context) error
+		wantMsg string
+	}{
+		{
+			name: "GetByID",
+			method: func(svc *DocumentTypeService, ctx context.Context) error {
+				_, err := svc.GetByID(ctx, 2)
+				return err
+			},
+			wantMsg: "get document type: mock error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &mockDocumentTypeRepo{ //nolint:exhaustruct
+				getByIDFn: func(ctx context.Context, id int) (*domain.DocumentType, error) {
+					return nil, errMock
+				},
+			}
+
+			svc := NewDocumentTypeService(repo)
+			err := tt.method(svc, ctx())
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if err.Error() != tt.wantMsg {
+				t.Errorf("expected error message %q, got %q", tt.wantMsg, err.Error())
+			}
+			if !errors.Is(err, errMock) {
+				t.Errorf("expected %v to wrap %v", err, errMock)
+			}
+		})
+	}
 }

@@ -27,9 +27,14 @@ func (m *mockDocRepo) GetByID(ctx context.Context, id int) (*domain.Document, er
 	return m.getByIDFn(ctx, id)
 }
 
-type mockDocTypeRepo struct{}
+type mockDocTypeRepo struct {
+	getByIDFn func(ctx context.Context, id int) (*domain.DocumentType, error)
+}
 
-func (m *mockDocTypeRepo) GetByID(_ context.Context, id int) (*domain.DocumentType, error) {
+func (m *mockDocTypeRepo) GetByID(ctx context.Context, id int) (*domain.DocumentType, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, id)
+	}
 	return &domain.DocumentType{ID: id, Name: "Document Type"}, nil //nolint:exhaustruct
 }
 
@@ -65,8 +70,12 @@ func newTestCorrSvc() *application.CorrespondentService {
 	return application.NewCorrespondentService(&mockCorrespondentRepo{}) //nolint:exhaustruct
 }
 
-func newTestDocTypeSvc() *application.DocumentTypeService {
-	return application.NewDocumentTypeService(&mockDocTypeRepo{})
+func newTestDocTypeSvc(getByIDFn ...func(ctx context.Context, id int) (*domain.DocumentType, error)) *application.DocumentTypeService {
+	var fn func(ctx context.Context, id int) (*domain.DocumentType, error)
+	if len(getByIDFn) > 0 {
+		fn = getByIDFn[0]
+	}
+	return application.NewDocumentTypeService(&mockDocTypeRepo{getByIDFn: fn}) //nolint:exhaustruct
 }
 
 func ctx() context.Context {
@@ -629,6 +638,28 @@ func TestNewGetDocumentContentHandler(t *testing.T) { //nolint:gocognit,gocyclo
 			t.Errorf("expected nil page_count")
 		}
 	})
+
+	t.Run("document type name resolution error is silently swallowed", func(t *testing.T) {
+		t.Parallel()
+
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
+			getByIDFn: func(ctx context.Context, id int) (*domain.Document, error) {
+				return &testDocs[0], nil
+			},
+		})
+
+		docTypeSvc := newTestDocTypeSvc(func(ctx context.Context, id int) (*domain.DocumentType, error) {
+			return nil, errMock
+		})
+		handler := NewGetDocumentContentHandler(svc, newTestCorrSvc(), docTypeSvc)
+		_, output, err := handler(ctx(), nil, GetDocumentContentInput{DocumentID: 1})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if output.DocumentType != nil && output.DocumentTypeName != "" {
+			t.Errorf("expected empty DocumentTypeName when GetByID fails, got %q", output.DocumentTypeName)
+		}
+	})
 }
 
 // ============================================================
@@ -804,7 +835,7 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) { //nolint:gocognit
 // get_documents_by_correspondent
 // ============================================================
 
-func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
+func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) { //nolint:gocognit
 	t.Parallel()
 
 	t.Run("success", func(t *testing.T) {
@@ -903,6 +934,33 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) {
 		}
 		if !errors.Is(err, errMock) {
 			t.Errorf("expected wrapping of %v, got %v", errMock, err)
+		}
+	})
+
+	t.Run("document type name resolution error is silently swallowed", func(t *testing.T) {
+		t.Parallel()
+
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
+			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
+				return &domain.PaginatedResult[domain.Document]{
+					Total:   1,
+					Results: testDocs[:1],
+				}, nil
+			},
+		})
+
+		docTypeSvc := newTestDocTypeSvc(func(ctx context.Context, id int) (*domain.DocumentType, error) {
+			return nil, errMock
+		})
+		handler := NewGetDocumentsByCorrespondentHandler(svc, newTestCorrSvc(), docTypeSvc)
+		_, output, err := handler(ctx(), nil, GetDocumentsByCorrespondentInput{CorrespondentID: 5}) //nolint:exhaustruct
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, r := range output.Results {
+			if r.DocumentType != nil && r.DocumentTypeName != "" {
+				t.Errorf("expected empty DocumentTypeName when GetByID fails, got %q for doc %d", r.DocumentTypeName, r.ID)
+			}
 		}
 	})
 }
@@ -1054,14 +1112,14 @@ func TestNewListTagsHandler(t *testing.T) { //nolint:gocognit
 	t.Run("error propagation", func(t *testing.T) {
 		t.Parallel()
 
-		svc := application.NewTagService(&mockTagRepo{
-			listFn: func(ctx context.Context, query string, page, pageSize int) (*domain.PaginatedResult[domain.Tag], error) {
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
+			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
 				return nil, errMock
 			},
 		})
 
-		handler := NewListTagsHandler(svc)
-		_, _, err := handler(ctx(), nil, ListTagsInput{}) //nolint:exhaustruct
+		handler := NewGetDocumentsByTagHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
+		_, _, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 1}) //nolint:exhaustruct
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -1069,13 +1127,42 @@ func TestNewListTagsHandler(t *testing.T) { //nolint:gocognit
 			t.Errorf("expected wrapping of %v, got %v", errMock, err)
 		}
 	})
+
+	t.Run("document type name resolution error is silently swallowed", func(t *testing.T) {
+		t.Parallel()
+
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
+			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
+				return &domain.PaginatedResult[domain.Document]{
+					Total:   1,
+					Results: testDocs[:1],
+				}, nil
+			},
+		})
+
+		docTypeSvc := newTestDocTypeSvc(func(ctx context.Context, id int) (*domain.DocumentType, error) {
+			return nil, errMock
+		})
+		handler := NewGetDocumentsByTagHandler(svc, newTestCorrSvc(), docTypeSvc)
+		_, output, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 7}) //nolint:exhaustruct
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, r := range output.Results {
+			if r.DocumentType != nil && r.DocumentTypeName != "" {
+				t.Errorf("expected empty DocumentTypeName when GetByID fails, got %q for doc %d", r.DocumentTypeName, r.ID)
+			}
+		}
+	})
 }
 
+// ============================================================
+// fulltext_search
 // ============================================================
 // get_documents_by_tag
 // ============================================================
 
-func TestNewGetDocumentsByTagHandler(t *testing.T) {
+func TestNewGetDocumentsByTagHandler(t *testing.T) { //nolint:gocognit
 	t.Parallel()
 
 	t.Run("success", func(t *testing.T) {
@@ -1163,8 +1250,8 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 			},
 		})
 
-		handler := NewGetDocumentsByTagHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
-		_, _, err := handler(ctx(), nil, GetDocumentsByTagInput{TagID: 1}) //nolint:exhaustruct
+		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc(), newTestDocTypeSvc())
+		_, _, err := handler(ctx(), nil, SearchDocumentsInput{Query: "fail"}) //nolint:exhaustruct,goconst
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
@@ -1172,13 +1259,43 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) {
 			t.Errorf("expected wrapping of %v, got %v", errMock, err)
 		}
 	})
+
+	t.Run("document type name resolution error is silently swallowed", func(t *testing.T) {
+		t.Parallel()
+
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
+			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
+				return &domain.PaginatedResult[domain.Document]{
+					Total:   2,
+					Results: testDocs[:2],
+				}, nil
+			},
+		})
+
+		docTypeSvc := newTestDocTypeSvc(func(ctx context.Context, id int) (*domain.DocumentType, error) {
+			return nil, errMock
+		})
+		handler := NewSearchDocumentsHandler(svc, newTestCorrSvc(), docTypeSvc)
+		_, output, err := handler(ctx(), nil, SearchDocumentsInput{}) //nolint:exhaustruct
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Document with a DocumentType should have an empty name when resolution fails.
+		for _, r := range output.Results {
+			if r.DocumentType != nil && r.DocumentTypeName != "" {
+				t.Errorf("expected empty DocumentTypeName when GetByID fails, got %q for doc %d", r.DocumentTypeName, r.ID)
+			}
+		}
+	})
 }
 
+// ============================================================
+// get_document_content
 // ============================================================
 // fulltext_search
 // ============================================================
 
-func TestNewFulltextSearchHandler(t *testing.T) { //nolint:gocognit,maintidx
+func TestNewFulltextSearchHandler(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 	t.Parallel()
 
 	t.Run("success with query", func(t *testing.T) {
@@ -1361,6 +1478,33 @@ func TestNewFulltextSearchHandler(t *testing.T) { //nolint:gocognit,maintidx
 		}
 		if !errors.Is(err, errMock) {
 			t.Errorf("expected wrapping of %v, got %v", errMock, err)
+		}
+	})
+
+	t.Run("document type name resolution error is silently swallowed", func(t *testing.T) {
+		t.Parallel()
+
+		svc := application.NewDocumentService(&mockDocRepo{ //nolint:exhaustruct
+			searchFn: func(ctx context.Context, params domain.SearchDocumentsParams) (*domain.PaginatedResult[domain.Document], error) {
+				return &domain.PaginatedResult[domain.Document]{
+					Total:   1,
+					Results: testDocs[:1],
+				}, nil
+			},
+		})
+
+		docTypeSvc := newTestDocTypeSvc(func(ctx context.Context, id int) (*domain.DocumentType, error) {
+			return nil, errMock
+		})
+		handler := NewFulltextSearchHandler(svc, newTestCorrSvc(), docTypeSvc)
+		_, output, err := handler(ctx(), nil, FulltextSearchInput{Query: "invoice"}) //nolint:exhaustruct
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, r := range output.Results {
+			if r.DocumentType != nil && r.DocumentTypeName != "" {
+				t.Errorf("expected empty DocumentTypeName when GetByID fails, got %q for doc %d", r.DocumentTypeName, r.ID)
+			}
 		}
 	})
 }
