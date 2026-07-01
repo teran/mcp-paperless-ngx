@@ -97,8 +97,12 @@ func main() {
 		},
 	)
 
-	// Wrap with token extraction middleware, then with client injection.
-	handler := handlers.TokenMiddleware(injectClientMiddleware(paperlessURL)(mcpHandler))
+	// Wrap with middlewares: body limit → token extraction → client injection.
+	handler := handlers.TokenMiddleware(
+		handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
+			injectClientMiddleware(paperlessURL)(mcpHandler),
+		),
+	)
 
 	//nolint:gosec // env vars are server-side config
 	log.Printf("Starting mcp-paperless-ngx server on %s", sanitizeLog(listenAddr))

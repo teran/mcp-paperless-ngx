@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 )
@@ -17,6 +18,27 @@ func WithClient(ctx context.Context, client any) context.Context {
 // Returns nil if not present.
 func ClientFromContext(ctx context.Context) any {
 	return ctx.Value(paperlessClientKey{})
+}
+
+// DefaultMaxRequestBodySize is the maximum allowed size for a request body (1 MB).
+const DefaultMaxRequestBodySize = 1 << 20
+
+// BodyLimitMiddleware limits the request body size to maxBytes.
+// The size limit is enforced before the body reaches downstream handlers,
+// preventing resource exhaustion from large requests.
+func BodyLimitMiddleware(maxBytes int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// MaxBytesError returns true if the error is an http.MaxBytesError.
+func MaxBytesError(err error) bool {
+	var maxBytesErr *http.MaxBytesError
+	return err != nil && errors.As(err, &maxBytesErr)
 }
 
 // TokenMiddleware extracts the bearer token from the Authorization header

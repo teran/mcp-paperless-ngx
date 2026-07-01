@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"context"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -279,6 +282,137 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,maintidx
 
 		if rr.Code != http.StatusUnauthorized {
 			t.Errorf("expected status 401, got %d", rr.Code)
+		}
+	})
+}
+
+// ============================================================
+// BodyLimitMiddleware tests
+// ============================================================
+
+func TestBodyLimitMiddleware(t *testing.T) {
+	t.Parallel()
+
+	t.Run("small body passes through", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("unexpected error reading body: %v", err)
+			}
+			if string(body) != "hello" {
+				t.Errorf("expected body %q, got %q", "hello", string(body))
+			}
+			w.WriteHeader(http.StatusOK)
+		})
+
+		handler := BodyLimitMiddleware(1024)(next)
+
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", strings.NewReader("hello"))
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", rr.Code)
+		}
+	})
+
+	t.Run("body exceeding limit returns 413", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, err := io.ReadAll(r.Body)
+			if err == nil {
+				t.Error("expected error reading body exceeding limit, got nil")
+			}
+			if !MaxBytesError(err) {
+				t.Errorf("expected MaxBytesError, got %T: %v", err, err)
+			}
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+		})
+
+		handler := BodyLimitMiddleware(5)(next)
+
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", strings.NewReader("hello world"))
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusRequestEntityTooLarge {
+			t.Errorf("expected status 413, got %d", rr.Code)
+		}
+	})
+
+	t.Run("zero limit allows zero-length body", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("unexpected error reading body: %v", err)
+			}
+			if len(body) != 0 {
+				t.Errorf("expected empty body, got %q", string(body))
+			}
+			w.WriteHeader(http.StatusOK)
+		})
+
+		handler := BodyLimitMiddleware(0)(next)
+
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", http.NoBody)
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", rr.Code)
+		}
+	})
+
+	t.Run("GET request with no body passes through", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+
+		handler := BodyLimitMiddleware(1024)(next)
+
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", rr.Code)
+		}
+	})
+}
+
+func TestMaxBytesError(t *testing.T) {
+	t.Parallel()
+
+	t.Run("with MaxBytesError", func(t *testing.T) {
+		t.Parallel()
+
+		err := &http.MaxBytesError{Limit: 100}
+		if !MaxBytesError(err) {
+			t.Error("expected true for MaxBytesError")
+		}
+	})
+
+	t.Run("with other error", func(t *testing.T) {
+		t.Parallel()
+
+		err := errors.New("some other error")
+		if MaxBytesError(err) {
+			t.Error("expected false for other error")
+		}
+	})
+
+	t.Run("with nil", func(t *testing.T) {
+		t.Parallel()
+
+		if MaxBytesError(nil) {
+			t.Error("expected false for nil")
 		}
 	})
 }
