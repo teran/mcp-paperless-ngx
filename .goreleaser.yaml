@@ -61,5 +61,4 @@ release:
   github:
     owner: teran
     name: mcp-paperless-ngx
-  draft: true
-  replace_existing_draft: true
+  draft: false
