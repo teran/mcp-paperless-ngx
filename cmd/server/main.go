@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -61,8 +60,6 @@ var (
 	commit  = "none"    //nolint:gochecknoglobals
 	date    = "unknown" //nolint:gochecknoglobals
 )
-
-var errTokenVerification = errors.New("token verification failed")
 
 func main() {
 	paperlessURL := os.Getenv("PAPERLESS_URL")
@@ -214,13 +211,6 @@ func injectClientMiddleware(paperlessURL string) func(http.Handler) http.Handler
 
 			client := infra.NewClient(paperlessURL, raw)
 
-			// Verify the token before proceeding.
-			if err := verifyToken(r.Context(), client); err != nil {
-				log.Printf("Token verification failed: %v", err)
-				http.Error(w, fmt.Sprintf("Token verification failed: %v", err), http.StatusUnauthorized)
-				return
-			}
-
 			// Build application services using adapters and store in context.
 			docSvc := application.NewDocumentService(client)
 			corrSvc := application.NewCorrespondentService(infra.NewCorrespondentRepo(client))
@@ -244,11 +234,4 @@ func sanitizeLog(s string) string {
 	return s
 }
 
-// verifyToken checks if the token is valid.
-func verifyToken(ctx context.Context, client *infra.Client) error {
-	_, err := client.SearchCorrespondents(ctx, "", 1, 1)
-	if err != nil {
-		return fmt.Errorf("%w: %w", errTokenVerification, err)
-	}
-	return nil
-}
+

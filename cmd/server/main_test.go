@@ -2,14 +2,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/teran/mcp-paperless-ngx/handlers"
-	infra "github.com/teran/mcp-paperless-ngx/infrastructure/paperless"
 )
 
 // ---------------------------------------------------------------------------
@@ -43,57 +41,6 @@ func TestSanitizeLog(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// verifyToken tests
-// ---------------------------------------------------------------------------
-
-func TestVerifyToken(t *testing.T) {
-	t.Parallel()
-
-	t.Run("valid token passes", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"count":1,"results":[{"id":1,"name":"Test","slug":"test","matching_algorithm":1,"is_insensitive":false,"document_count":0,"last_correspondence":"","user_can_change":true}]}`))
-		}))
-		defer srv.Close()
-
-		client := infra.NewClient(srv.URL, "valid-token")
-		err := verifyToken(context.Background(), client)
-		if err != nil {
-			t.Fatalf("expected no error, got: %v", err)
-		}
-	})
-
-	t.Run("invalid token returns error wrapping errTokenVerification", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = w.Write([]byte(`{"detail":"Invalid token"}`))
-		}))
-		defer srv.Close()
-
-		client := infra.NewClient(srv.URL, "bad-token")
-		err := verifyToken(context.Background(), client)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-		if !errors.Is(err, errTokenVerification) {
-			t.Errorf("expected error to wrap errTokenVerification, got: %v", err)
-		}
-	})
-
-	t.Run("unreachable server returns error wrapping errTokenVerification", func(t *testing.T) {
-		client := infra.NewClient("http://127.0.0.1:1", "some-token")
-		err := verifyToken(context.Background(), client)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-		if !errors.Is(err, errTokenVerification) {
-			t.Errorf("expected error to wrap errTokenVerification, got: %v", err)
-		}
-	})
-}
-
-// ---------------------------------------------------------------------------
 // injectClientMiddleware tests
 // ---------------------------------------------------------------------------
 
@@ -101,14 +48,7 @@ func TestInjectClientMiddleware(t *testing.T) {
 	t.Parallel()
 
 	t.Run("with valid token in context creates services and passes through", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"count":1,"results":[{"id":1,"name":"Test","slug":"test","matching_algorithm":1,"is_insensitive":false,"document_count":0,"last_correspondence":"","user_can_change":true}]}`))
-		}))
-		defer srv.Close()
-
-		middleware := injectClientMiddleware(srv.URL)
+		middleware := injectClientMiddleware("http://paperless:8000")
 
 		var handlerCalled bool
 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -147,43 +87,13 @@ func TestInjectClientMiddleware(t *testing.T) {
 	})
 
 	t.Run("missing token in context returns 401", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			t.Error("paperless handler should not be called when token is missing")
-		}))
-		defer srv.Close()
-
-		middleware := injectClientMiddleware(srv.URL)
+		middleware := injectClientMiddleware("http://paperless:8000")
 
 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			t.Error("next handler should not be called when token is missing")
 		})
 
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
-		rr := httptest.NewRecorder()
-		middleware(next).ServeHTTP(rr, req)
-
-		if rr.Code != http.StatusUnauthorized {
-			t.Errorf("expected status 401, got %d", rr.Code)
-		}
-	})
-
-	t.Run("invalid token returns 401", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = w.Write([]byte(`{"detail":"Invalid token"}`))
-		}))
-		defer srv.Close()
-
-		middleware := injectClientMiddleware(srv.URL)
-
-		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			t.Error("next handler should not be called when token is invalid")
-		})
-
-		req := httptest.NewRequestWithContext(
-			handlers.WithClient(context.Background(), "bad-token"),
-			http.MethodGet, "/", nil,
-		)
 		rr := httptest.NewRecorder()
 		middleware(next).ServeHTTP(rr, req)
 
