@@ -94,7 +94,7 @@ The binaries are placed in the `dist/` directory.
 
 ### Prerequisites
 
-- Go 1.22+
+- Go (version as declared in `go.mod`)
 - golangci-lint (for linting)
 
 ### Linting
@@ -106,33 +106,9 @@ golangci-lint run ./...
 ### Adding a new tool
 
 1. Define input/output types in `handlers/tools.go`
-2. Write the handler factory function
+2. Write the handler factory function in `handlers/tools.go`
 3. Register the tool in `registerTools()` in `cmd/server/main.go`
 4. If a new domain entity is needed, define it in `domain/` and add a repository interface
-
-## Project Structure
-
-```
-.
-├── cmd/server/main.go         # Entry point (composition root, DI wiring)
-├── AGENTS.md                  # Agent documentation
-├── SPEC.md                    # Full specification
-├── .golangci.yml              # Linter configuration
-├── domain/
-│   ├── document.go            # Document entity + SearchDocumentsParams
-│   ├── correspondent.go       # Correspondent entity
-│   ├── tag.go                 # Tag entity
-│   └── repository.go          # Repository interfaces
-├── application/
-│   └── service.go             # Use case services
-├── infrastructure/
-│   └── paperless/
-│       ├── client.go          # HTTP client (infra) + repo adapters
-│       └── models.go          # Wire-format JSON models + domain converters
-└── handlers/
-    ├── middleware.go          # Token extraction middleware
-    └── tools.go              # MCP tool handlers (primary adapters)
-```
 
 ## License
 
