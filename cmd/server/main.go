@@ -18,42 +18,6 @@ import (
 	infra "github.com/teran/mcp-paperless-ngx/infrastructure/paperless"
 )
 
-// Context keys for dependency injection.
-type (
-	docServiceCtxKey     struct{}
-	corrServiceCtxKey    struct{}
-	docTypeServiceCtxKey struct{}
-	tagServiceCtxKey     struct{}
-)
-
-func contextWithServices(ctx context.Context, docSvc *application.DocumentService, corrSvc *application.CorrespondentService, docTypeSvc *application.DocumentTypeService, tagSvc *application.TagService) context.Context {
-	ctx = context.WithValue(ctx, docServiceCtxKey{}, docSvc)
-	ctx = context.WithValue(ctx, corrServiceCtxKey{}, corrSvc)
-	ctx = context.WithValue(ctx, docTypeServiceCtxKey{}, docTypeSvc)
-	ctx = context.WithValue(ctx, tagServiceCtxKey{}, tagSvc)
-	return ctx
-}
-
-func docServiceFromContext(ctx context.Context) *application.DocumentService {
-	v, _ := ctx.Value(docServiceCtxKey{}).(*application.DocumentService)
-	return v
-}
-
-func corrServiceFromContext(ctx context.Context) *application.CorrespondentService {
-	v, _ := ctx.Value(corrServiceCtxKey{}).(*application.CorrespondentService)
-	return v
-}
-
-func docTypeServiceFromContext(ctx context.Context) *application.DocumentTypeService {
-	v, _ := ctx.Value(docTypeServiceCtxKey{}).(*application.DocumentTypeService)
-	return v
-}
-
-func tagServiceFromContext(ctx context.Context) *application.TagService {
-	v, _ := ctx.Value(tagServiceCtxKey{}).(*application.TagService)
-	return v
-}
-
 // Build-time variables injected by goreleaser (via ldflags).
 var (
 	version = "dev"
@@ -84,7 +48,7 @@ func main() {
 	})
 
 	// Register tools via handler factories.
-	registerTools(srv)
+	handlers.RegisterTools(srv)
 
 	// Create the Streamable HTTP handler.
 	mcpHandler := mcp.NewStreamableHTTPHandler(
@@ -146,59 +110,6 @@ func main() {
 	log.Println("Server stopped gracefully")
 }
 
-// registerTools registers all MCP tools on the server.
-// Handlers extract services from context at runtime.
-func registerTools(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
-		Name:        "search_documents",
-		Description: "Search documents with filters (query, correspondent, tags, date range).",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.SearchDocumentsInput) (*mcp.CallToolResult, handlers.SearchDocumentsOutput, error) {
-		return handlers.NewSearchDocumentsHandler(docServiceFromContext(ctx), corrServiceFromContext(ctx), docTypeServiceFromContext(ctx))(ctx, nil, in)
-	})
-
-	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
-		Name:        "get_document_content",
-		Description: "Get full OCR text and metadata of a document.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.GetDocumentContentInput) (*mcp.CallToolResult, handlers.DocumentDetail, error) {
-		return handlers.NewGetDocumentContentHandler(docServiceFromContext(ctx), corrServiceFromContext(ctx), docTypeServiceFromContext(ctx))(ctx, nil, in)
-	})
-
-	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
-		Name:        "search_correspondents",
-		Description: "Search correspondents by name.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.SearchCorrespondentsInput) (*mcp.CallToolResult, handlers.SearchCorrespondentsOutput, error) {
-		return handlers.NewSearchCorrespondentsHandler(corrServiceFromContext(ctx))(ctx, nil, in)
-	})
-
-	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
-		Name:        "get_documents_by_correspondent",
-		Description: "List documents for a correspondent.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.GetDocumentsByCorrespondentInput) (*mcp.CallToolResult, handlers.SearchDocumentsOutput, error) {
-		return handlers.NewGetDocumentsByCorrespondentHandler(docServiceFromContext(ctx), corrServiceFromContext(ctx), docTypeServiceFromContext(ctx))(ctx, nil, in)
-	})
-
-	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
-		Name:        "list_tags",
-		Description: "List all tags.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.ListTagsInput) (*mcp.CallToolResult, handlers.ListTagsOutput, error) {
-		return handlers.NewListTagsHandler(tagServiceFromContext(ctx))(ctx, nil, in)
-	})
-
-	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
-		Name:        "get_documents_by_tag",
-		Description: "List documents for a tag.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.GetDocumentsByTagInput) (*mcp.CallToolResult, handlers.SearchDocumentsOutput, error) {
-		return handlers.NewGetDocumentsByTagHandler(docServiceFromContext(ctx), corrServiceFromContext(ctx), docTypeServiceFromContext(ctx))(ctx, nil, in)
-	})
-
-	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
-		Name:        "fulltext_search",
-		Description: "Full-text search across all documents.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in handlers.FulltextSearchInput) (*mcp.CallToolResult, handlers.FulltextSearchOutput, error) {
-		return handlers.NewFulltextSearchHandler(docServiceFromContext(ctx), corrServiceFromContext(ctx), docTypeServiceFromContext(ctx))(ctx, nil, in)
-	})
-}
-
 // injectClientMiddleware creates the Paperless-ngx client and attaches
 // application services to the context.
 func injectClientMiddleware(paperlessURL string) func(http.Handler) http.Handler {
@@ -219,7 +130,7 @@ func injectClientMiddleware(paperlessURL string) func(http.Handler) http.Handler
 			tagSvc := application.NewTagService(infra.NewTagRepo(client))
 
 			ctx := r.Context()
-			ctx = contextWithServices(ctx, docSvc, corrSvc, docTypeSvc, tagSvc)
+			ctx = handlers.ContextWithServices(ctx, docSvc, corrSvc, docTypeSvc, tagSvc)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

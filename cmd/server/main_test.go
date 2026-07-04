@@ -55,17 +55,17 @@ func TestInjectClientMiddleware(t *testing.T) {
 			handlerCalled = true
 
 			// Verify that services are accessible from context
-			if svc := docServiceFromContext(r.Context()); svc == nil {
-				t.Error("docServiceFromContext returned nil")
+			if svc := handlers.DocServiceFromContext(r.Context()); svc == nil {
+				t.Error("handlers.DocServiceFromContext returned nil")
 			}
-			if svc := corrServiceFromContext(r.Context()); svc == nil {
-				t.Error("corrServiceFromContext returned nil")
+			if svc := handlers.CorrServiceFromContext(r.Context()); svc == nil {
+				t.Error("handlers.CorrServiceFromContext returned nil")
 			}
-			if svc := docTypeServiceFromContext(r.Context()); svc == nil {
-				t.Error("docTypeServiceFromContext returned nil")
+			if svc := handlers.DocTypeServiceFromContext(r.Context()); svc == nil {
+				t.Error("handlers.DocTypeServiceFromContext returned nil")
 			}
-			if svc := tagServiceFromContext(r.Context()); svc == nil {
-				t.Error("tagServiceFromContext returned nil")
+			if svc := handlers.TagServiceFromContext(r.Context()); svc == nil {
+				t.Error("handlers.TagServiceFromContext returned nil")
 			}
 
 			w.WriteHeader(http.StatusOK)
