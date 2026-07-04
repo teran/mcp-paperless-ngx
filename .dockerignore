@@ -1,4 +1,13 @@
 .git/
 .gitignore
+.gitattributes
 .golangci.yml
-*.md
+.goreleaser.yaml
+*.test
+*.out
+dist/
+releases/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
