@@ -61,7 +61,7 @@ Search documents with configurable filters.
 | `page`             | int    | no       | Page number (default: 1)                           |
 | `page_size`        | int    | no       | Results per page (default: 25, max: 100)           |
 
-**Output**: Paginated list of document summaries (id, title, correspondent, tags, created, mime_type).
+**Output**: Paginated list of document summaries (id, title, correspondent, correspondent_name, document_type, document_type_name, tags, created, mime_type, archive_serial_number, page_count).
 
 ---
 
@@ -75,7 +75,7 @@ Retrieve the full text content (OCR text) of a specific document.
 |--------------|------|----------|------------------------|
 | `document_id` | int  | yes      | ID of the document     |
 
-**Output**: Full document details including OCR text, metadata, tags, and correspondent.
+**Output**: Full document details including OCR text, metadata, tags, correspondent name, document_type name, page count, and archive serial number.
 
 ---
 
@@ -91,7 +91,7 @@ Search correspondents by name.
 | `page`    | int    | no       | Page number (default: 1)           |
 | `page_size` | int  | no       | Results per page (default: 25)     |
 
-**Output**: List of matching correspondents (id, name, document_count).
+**Output**: List of matching correspondents (id, name, slug, document_count).
 
 ---
 
@@ -107,7 +107,7 @@ List documents associated with a specific correspondent.
 | `page`            | int  | no       | Page number (default: 1)                 |
 | `page_size`       | int  | no       | Results per page (default: 25, max: 100) |
 
-**Output**: Paginated list of documents for the given correspondent.
+**Output**: Paginated list of documents for the given correspondent (id, title, correspondent, correspondent_name, document_type, document_type_name, tags, created, mime_type, archive_serial_number, page_count).
 
 ---
 
@@ -123,7 +123,7 @@ Retrieve the full list of tags.
 | `page`      | int    | no       | Page number (default: 1)               |
 | `page_size` | int    | no       | Results per page (default: 25)         |
 
-**Output**: List of tags (id, name, color, document_count, is_inbox_tag).
+**Output**: List of tags (id, name, color, is_inbox_tag, document_count).
 
 ---
 
@@ -139,7 +139,7 @@ List documents associated with a specific tag.
 | `page`      | int  | no       | Page number (default: 1)                 |
 | `page_size` | int  | no       | Results per page (default: 25, max: 100) |
 
-**Output**: Paginated list of documents for the given tag.
+**Output**: Paginated list of documents for the given tag (id, title, correspondent, correspondent_name, document_type, document_type_name, tags, created, mime_type, archive_serial_number, page_count).
 
 ---
 
@@ -155,7 +155,7 @@ Performs a full-text search across all documents.
 | `page`      | int    | no       | Page number (default: 1)                 |
 | `page_size` | int    | no       | Results per page (default: 25, max: 100) |
 
-**Output**: Paginated list of document results with search hit score and highlights.
+**Output**: Paginated list of document results with search highlights (id, title, correspondent, correspondent_name, document_type, document_type_name, tags, created, highlights).
 
 ---
 
