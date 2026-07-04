@@ -77,7 +77,25 @@ Retrieve the full text content (OCR text) of a specific document.
 |--------------|------|----------|------------------------|
 | `document_id` | int  | yes      | ID of the document     |
 
-**Output**: Full document details including OCR text, metadata, tags, correspondent name, document_type name, page count, and archive serial number.
+**Output**: Full document details including OCR text, metadata, tags, correspondent name, document_type name, page count, archive serial number, original file name, creation date, modification date, and added date.
+
+| Field                 | Type   | Description                                  |
+|-----------------------|--------|----------------------------------------------|
+| `id`                  | int    | Document ID                                  |
+| `title`               | string | Document title                               |
+| `content`             | string | Full OCR text content                        |
+| `correspondent`       | *int   | Correspondent ID (nullable)                  |
+| `correspondent_name`  | string | Correspondent display name (resolved)        |
+| `document_type`       | *int   | Document type ID (nullable)                  |
+| `document_type_name`  | string | Document type display name (resolved)        |
+| `tags`                | []int  | Tag IDs                                      |
+| `created`             | string | Creation date (ISO 8601)                     |
+| `modified`            | string | Last modification date (ISO 8601)            |
+| `added`               | string | Date added to Paperless-ngx (ISO 8601)       |
+| `archive_serial_number` | *int | Archive serial number (nullable)             |
+| `original_file_name`  | string | Original uploaded file name                  |
+| `mime_type`           | string | MIME type (e.g. `application/pdf`)           |
+| `page_count`          | *int   | Number of pages (nullable)                   |
 
 ---
 
