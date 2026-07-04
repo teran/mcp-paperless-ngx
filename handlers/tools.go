@@ -3,8 +3,11 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
+	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/teran/mcp-paperless-ngx/application"
 	"github.com/teran/mcp-paperless-ngx/domain"
@@ -196,6 +199,7 @@ func toDocumentSummaries(docs []domain.Document, corrNames map[int]string, docTy
 
 // resolveCorrespondentNames fetches names for all unique correspondent IDs
 // present in the documents and returns a map of ID → name.
+// Uses errgroup for concurrent resolution to avoid N+1 sequential HTTP calls.
 func resolveCorrespondentNames(ctx context.Context, corrSvc *application.CorrespondentService, docs []domain.Document) map[int]string {
 	ids := make(map[int]struct{})
 	for _, doc := range docs {
@@ -203,20 +207,38 @@ func resolveCorrespondentNames(ctx context.Context, corrSvc *application.Corresp
 			ids[*doc.Correspondent] = struct{}{}
 		}
 	}
-
-	names := make(map[int]string, len(ids))
-	for id := range ids {
-		corr, err := corrSvc.GetByID(ctx, id)
-		if err == nil && corr != nil {
-			names[id] = corr.Name
-		}
+	if len(ids) == 0 {
+		return nil
 	}
+
+	var mu sync.Mutex
+	names := make(map[int]string, len(ids))
+
+	g, ctx := errgroup.WithContext(ctx)
+	for id := range ids {
+		id := id
+		g.Go(func() error {
+			corr, err := corrSvc.GetByID(ctx, id)
+			if err != nil {
+				log.Printf("resolve correspondent name: id=%d: %v", id, err)
+				return nil // best-effort: swallow error
+			}
+			if corr != nil {
+				mu.Lock()
+				names[id] = corr.Name
+				mu.Unlock()
+			}
+			return nil
+		})
+	}
+	_ = g.Wait()
 
 	return names
 }
 
 // resolveDocumentTypeNames fetches names for all unique document type IDs
 // present in the documents and returns a map of ID → name.
+// Uses errgroup for concurrent resolution to avoid N+1 sequential HTTP calls.
 func resolveDocumentTypeNames(ctx context.Context, docTypeSvc *application.DocumentTypeService, docs []domain.Document) map[int]string {
 	ids := make(map[int]struct{})
 	for _, doc := range docs {
@@ -224,14 +246,31 @@ func resolveDocumentTypeNames(ctx context.Context, docTypeSvc *application.Docum
 			ids[*doc.DocumentType] = struct{}{}
 		}
 	}
-
-	names := make(map[int]string, len(ids))
-	for id := range ids {
-		dt, err := docTypeSvc.GetByID(ctx, id)
-		if err == nil && dt != nil {
-			names[id] = dt.Name
-		}
+	if len(ids) == 0 {
+		return nil
 	}
+
+	var mu sync.Mutex
+	names := make(map[int]string, len(ids))
+
+	g, ctx := errgroup.WithContext(ctx)
+	for id := range ids {
+		id := id
+		g.Go(func() error {
+			dt, err := docTypeSvc.GetByID(ctx, id)
+			if err != nil {
+				log.Printf("resolve document type name: id=%d: %v", id, err)
+				return nil // best-effort: swallow error
+			}
+			if dt != nil {
+				mu.Lock()
+				names[id] = dt.Name
+				mu.Unlock()
+			}
+			return nil
+		})
+	}
+	_ = g.Wait()
 
 	return names
 }
