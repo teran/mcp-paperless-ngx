@@ -11,6 +11,8 @@
 - **7 MCP tools** for interacting with Paperless-ngx
 - **Written in Go** using the official [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
 
+> For the full specification — including detailed tool input/output schemas, middleware chain, authentication flow, and error handling — see [SPEC.md](SPEC.md).
+
 ## Architecture
 
 ```
@@ -122,6 +124,7 @@ go test -count=1 ./...
 2. Write the handler factory function in `handlers/tools.go`
 3. Register the tool in `registerTools()` in `cmd/server/main.go`
 4. If a new domain entity is needed, define it in `domain/` and add a repository interface
+5. If a new service is needed, wire it in `injectClientMiddleware` in `cmd/server/main.go` and document the new tool in [SPEC.md](SPEC.md)
 
 ## License
 
