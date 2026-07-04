@@ -238,6 +238,7 @@ func TestClient_Search_WithQuery(t *testing.T) {
 	client := newClient(srv.URL)
 	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		Query: "bank statement",
+		Page:  1, PageSize: 25,
 	})
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
@@ -440,7 +441,10 @@ func TestClient_Search_WithEmptyParams(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
+	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
+		Page:     1,
+		PageSize: 25,
+	})
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -498,7 +502,7 @@ func TestClient_Search_RequestValidation(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
+	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -1033,7 +1037,7 @@ func TestClient_Error_401(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
+	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("Search() expected error, got nil")
 	}
@@ -1067,7 +1071,7 @@ func TestClient_Error_NetworkError(t *testing.T) {
 	// Point at a server that will never respond (unreachable).
 	client := paperless.NewClient("http://127.0.0.1:1", "test-token")
 
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
+	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("Search() expected error for unreachable server, got nil")
 	}
@@ -1201,7 +1205,7 @@ func TestClient_Search_MalformedJSON(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
+	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("Search() expected error for malformed JSON, got nil")
 	}
@@ -1242,7 +1246,7 @@ func TestClient_Search_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := client.Search(ctx, domain.SearchDocumentsParams{}) //nolint:exhaustruct
+	_, err := client.Search(ctx, domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("Search() expected error for cancelled context, got nil")
 	}
@@ -1909,19 +1913,17 @@ func TestClient_Error_ErrorMessageContainsStatusCode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Search with all params zero value defaulting
+// Search with explicit pagination values (defaults handled by normalizePagination
+// at the handlers layer)
 // ---------------------------------------------------------------------------
 
-func TestClient_Search_ZeroPageDefaults(t *testing.T) {
+func TestClient_Search_WithExplicitPagination(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
-		assertQueryParam(t, r, "page", "1")
-		assertQueryParam(t, r, "page_size", "25")
+		assertQueryParam(t, r, "page", "2")
+		assertQueryParam(t, r, "page_size", "50")
 		assertQueryParamNotSet(t, r, "query")
-		assertQueryParamNotSet(t, r, "correspondent__id")
-		assertQueryParamNotSet(t, r, "created__date__gte")
-		assertQueryParamNotSet(t, r, "created__date__lte")
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -1933,8 +1935,8 @@ func TestClient_Search_ZeroPageDefaults(t *testing.T) {
 
 	client := newClient(srv.URL)
 	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
-		Page:     0,
-		PageSize: 0,
+		Page:     2,
+		PageSize: 50,
 	})
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)

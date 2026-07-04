@@ -282,16 +282,8 @@ func buildSearchQuery(params domain.SearchDocumentsParams) url.Values {
 	if params.CreatedBefore != "" {
 		q.Set("created__date__lte", params.CreatedBefore)
 	}
-	page := params.Page
-	if page <= 0 {
-		page = 1
-	}
-	q.Set("page", strconv.Itoa(page))
-	pageSize := params.PageSize
-	if pageSize <= 0 {
-		pageSize = 25
-	}
-	q.Set("page_size", strconv.Itoa(pageSize))
+	q.Set("page", strconv.Itoa(params.Page))
+	q.Set("page_size", strconv.Itoa(params.PageSize))
 
 	return q
 }
