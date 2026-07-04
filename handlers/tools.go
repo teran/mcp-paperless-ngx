@@ -216,7 +216,6 @@ func resolveCorrespondentNames(ctx context.Context, corrSvc *application.Corresp
 
 	g, ctx := errgroup.WithContext(ctx)
 	for id := range ids {
-		id := id
 		g.Go(func() error {
 			corr, err := corrSvc.GetByID(ctx, id)
 			if err != nil {
@@ -255,7 +254,6 @@ func resolveDocumentTypeNames(ctx context.Context, docTypeSvc *application.Docum
 
 	g, ctx := errgroup.WithContext(ctx)
 	for id := range ids {
-		id := id
 		g.Go(func() error {
 			dt, err := docTypeSvc.GetByID(ctx, id)
 			if err != nil {

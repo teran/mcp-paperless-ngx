@@ -136,11 +136,12 @@ func main() {
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		cancel()
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
+	cancel()
 
 	log.Println("Server stopped gracefully")
 }
@@ -233,5 +234,3 @@ func sanitizeLog(s string) string {
 	}
 	return s
 }
-
-
