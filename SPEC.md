@@ -268,3 +268,18 @@ goreleaser build --snapshot --clean
 docker buildx build --platform linux/amd64,linux/arm64 \
   -t ghcr.io/teran/mcp-paperless-ngx:latest --push .
 ```
+
+### Adding a new tool
+
+1. Define input/output types in `handlers/tools.go`
+2. Write the handler factory function in `handlers/tools.go`
+3. Register the tool via `RegisterTools()` in `handlers/registration.go`
+4. If a new domain entity is needed, define it in `domain/` and add a repository interface
+5. If a new service is needed, wire it in `injectClientMiddleware` (`cmd/server/main.go`)
+
+### Dependency Management
+
+Dependencies are updated automatically via [Dependabot](https://docs.github.com/code-security/dependabot) (`.github/dependabot.yml`):
+- Go module dependencies — checked weekly
+- Docker base image (`golang:1.26-alpine`) — checked weekly
+- GitHub Actions — checked weekly

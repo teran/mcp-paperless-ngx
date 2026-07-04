@@ -22,6 +22,19 @@ This document describes the agents/assistants involved in the development and op
 - **Scope**: Stores, indexes, and retrieves documents.
 - **API**: REST JSON API under `/api/`.
 
+## Package Layout
+
+| Package / File                              | Purpose                                         |
+|---------------------------------------------|-------------------------------------------------|
+| `cmd/server/main.go`                        | Entrypoint, HTTP server, middleware wiring      |
+| `handlers/middleware.go`                    | Token extraction, body limit middleware         |
+| `handlers/tools.go`                         | MCP tool handler factories + I/O types          |
+| `handlers/registration.go`                  | Tool registration via `RegisterTools()`         |
+| `application/service.go`                    | Business logic / use case layer                 |
+| `domain/`                                   | Domain models + repository interfaces (ports)   |
+| `infrastructure/paperless/client.go`        | Paperless-ngx HTTP API client (adapters)        |
+| `infrastructure/paperless/models.go`        | JSON wire models + `toDomain()` conversion      |
+
 ## Tool-to-Agent Mapping
 
 | MCP Tool                  | Agent Role                   | Paperless-ngx Endpoint                     |
