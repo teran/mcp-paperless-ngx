@@ -57,11 +57,16 @@ Authorization: Bearer <your-paperless-api-token>
 ```bash
 # 1. Set your Paperless-ngx instance URL
 export PAPERLESS_URL=http://localhost:8000
-
-# 2. Build and run the server
 export LISTEN_ADDR=:8080
-goreleaser build --snapshot --clean
-./dist/mcp-paperless-ngx_linux_amd64_v1/mcp-paperless-ngx
+
+# 2. Build and run the server (choose one)
+#    Option A: using go build (simpler, no extra tools)
+go build -o mcp-paperless-ngx ./cmd/server
+./mcp-paperless-ngx
+
+#    Option B: using goreleaser (produces release binaries)
+#    goreleaser build --snapshot --clean
+#    ./dist/mcp-paperless-ngx_linux_amd64_v1/mcp-paperless-ngx
 
 # 3. Configure your MCP client to connect:
 #    Endpoint: http://localhost:8080/mcp
@@ -89,14 +94,17 @@ goreleaser build --snapshot --clean
 ## Build
 
 ```bash
-# Build for the current platform
+# Quick build for the current platform (no extra tools required)
+go build -o mcp-paperless-ngx ./cmd/server
+
+# Release build using goreleaser
 goreleaser build --snapshot --clean
 
 # Build and push Docker image
 docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/teran/mcp-paperless-ngx:latest --push .
 ```
 
-The binaries are placed in the `dist/` directory.
+When using `goreleaser`, binaries are placed in the `dist/` directory.
 
 ## Development
 
