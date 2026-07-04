@@ -185,10 +185,16 @@ Performs a full-text search across all documents.
 
 ## Development
 
-```bash
-# Run locally
-PAPERLESS_URL=http://localhost:8000 LISTEN_ADDR=:8080 go run .
+### Prerequisites
 
-# Build
-go build -o mcp-paperless-ngx .
+- Go 1.26+
+- golangci-lint (for linting)
+- goreleaser (for building)
+
+### Building
+
+```bash
+# Build for the current platform
+goreleaser build --snapshot --clean
+# The binary will be in dist/ (path depends on OS/arch)
 ```
