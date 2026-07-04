@@ -9,6 +9,11 @@ This server exposes Paperless-ngx functionality through the MCP protocol using *
 
 - **Remote (HTTP) transport** — uses MCP Streamable HTTP protocol; not stdio-bound.
 - **Token from request headers** — the Paperless-ngx API token is read from the `Authorization` header of each MCP request, not from an environment variable. This enables per-user authentication in multi-tenant setups.
+- **Transparent token relay** — the MCP server never inspects or validates the token; it passes it through to Paperless-ngx, which handles all authentication and authorization.
+
+## Architectural Notes
+
+The server follows a standard hexagonal (ports & adapters) architecture with a middleware chain for cross-cutting concerns. Services are injected into request context and extracted by tool handlers at runtime — a pragmatic pattern for stateless MCP servers where handler registration is declarative. This is a normal and intentional design choice for a read-only proxy of this scale; no additional state management, caching, or orchestration layer is required.
 
 ## Architecture
 
