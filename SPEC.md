@@ -38,6 +38,7 @@ The server follows a standard hexagonal (ports & adapters) architecture with a m
 | MCP SDK           | `github.com/modelcontextprotocol/go-sdk`                        |
 | Transport         | Streamable HTTP (MCP spec 2025-03-26+, remote-capable)          |
 | HTTP Router       | `net/http` standard library + middleware pattern                |
+| Tool Registration | `handlers/registration.go` — `RegisterTools()` function         |
 
 ## Configuration (Environment Variables)
 

@@ -14,7 +14,8 @@ This document describes the agents/assistants involved in the development and op
 ### MCP Server (`mcp-paperless-ngx`)
 - **Role**: Mediator between the AI assistant and Paperless-ngx.
 - **Scope**: Translates MCP tool invocations into Paperless-ngx REST API calls.
-- **Responsible for**: Authentication, request routing, response formatting.
+- **Responsible for**: Transparent token relay, request routing, response formatting.
+- **Does not validate tokens** — authentication and authorization are delegated entirely to the Paperless-ngx backend.
 
 ### Paperless-ngx
 - **Role**: Document management backend.

@@ -112,7 +112,7 @@ When using `goreleaser`, binaries are placed in the `dist/` directory.
 
 - Go (version as declared in `go.mod`)
 - golangci-lint (for linting)
-- goreleaser (for building)
+- goreleaser (highly recommended for building/releasing)
 
 ### Linting
 
@@ -130,7 +130,7 @@ go test -count=1 ./...
 
 1. Define input/output types in `handlers/tools.go`
 2. Write the handler factory function in `handlers/tools.go`
-3. Register the tool in `registerTools()` in `cmd/server/main.go`
+3. Register the tool via `handlers.RegisterTools()` in `handlers/registration.go`
 4. If a new domain entity is needed, define it in `domain/` and add a repository interface
 5. If a new service is needed, wire it in `injectClientMiddleware` in `cmd/server/main.go` and document the new tool in [SPEC.md](SPEC.md)
 
