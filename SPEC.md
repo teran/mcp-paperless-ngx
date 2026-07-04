@@ -43,6 +43,8 @@ This server exposes Paperless-ngx functionality through the MCP protocol using *
 
 The Paperless-ngx API token is **not** set via environment variables. It is supplied per-request in the `Authorization` header as `Bearer <token>` (the SDK also accepts `Token <token>` for Paperless-ngx compatibility).
 
+The MCP server listens on the `/mcp` HTTP path via the Streamable HTTP handler.
+
 ## MCP Tools
 
 ### 1. `search_documents`
@@ -194,7 +196,11 @@ Performs a full-text search across all documents.
 ### Building
 
 ```bash
-# Build for the current platform
+# Build for the current platform (binary)
 goreleaser build --snapshot --clean
 # The binary will be in dist/ (path depends on OS/arch)
+
+# Build and push Docker image
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t ghcr.io/teran/mcp-paperless-ngx:latest --push .
 ```
