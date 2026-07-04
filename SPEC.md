@@ -209,11 +209,29 @@ No token verification is performed by this server — authentication and authori
 
 ## Error Handling
 
-- **401 Unauthorized**: Missing or invalid `Authorization` header.
-- **502 Bad Gateway**: Paperless-ngx instance unreachable or returns errors.
-- **404 Not Found**: Requested resource does not exist.
-- **400 Bad Request**: Invalid input parameters.
-- Internal errors are returned with `isError: true` in the MCP response.
+Errors occur at two distinct levels:
+
+### HTTP Level (Middleware)
+
+These errors are returned directly as HTTP status codes before the request reaches any tool handler:
+
+| Status | Cause | Source |
+|--------|-------|--------|
+| **401 Unauthorized** | Missing or malformed `Authorization` header | `TokenMiddleware` |
+| **401 Unauthorized** | Token not found in request context | `injectClientMiddleware` |
+
+### MCP Level (Tool Handlers)
+
+These errors are returned as `isError: true` in the MCP response (HTTP 200 with an error payload). The Paperless-ngx API response determines the error content:
+
+| Scenario | MCP Error | Cause |
+|----------|-----------|-------|
+| Resource not found | `isError: true` | Paperless-ngx returns 404 (e.g. document ID does not exist) |
+| Paperless-ngx unavailable | `isError: true` | Network error or Paperless-ngx returns 5xx |
+| Invalid token | `isError: true` | Paperless-ngx returns 401 (token rejected by backend) |
+| Invalid input parameters | `isError: true` | Parameter validation fails in the tool handler |
+
+Authentication and authorization are handled entirely by the Paperless-ngx backend. Invalid tokens are rejected at the Paperless-ngx API level, not by this MCP server.
 
 ## Security Considerations
 
