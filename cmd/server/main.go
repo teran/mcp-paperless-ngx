@@ -7,7 +7,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -105,8 +107,6 @@ func main() {
 	)
 
 	//nolint:gosec // env vars are server-side config
-	log.Printf("Starting mcp-paperless-ngx server on %s", sanitizeLog(listenAddr))
-	//nolint:gosec // env vars are server-side config
 	log.Printf("Paperless-ngx URL: %s", sanitizeLog(paperlessURL))
 	log.Printf("Version: %s, commit: %s, built: %s", version, commit, date)
 
@@ -119,9 +119,33 @@ func main() {
 		IdleTimeout:       120 * time.Second,
 	}
 
-	if err := httpServer.ListenAndServe(); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	// Channel to capture server errors.
+	errCh := make(chan error, 1)
+	go func() {
+		log.Printf("Starting mcp-paperless-ngx server on %s", sanitizeLog(listenAddr))
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	}()
+
+	// Wait for SIGTERM or SIGINT for graceful shutdown.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	select {
+	case sig := <-quit:
+		log.Printf("Received signal %v, shutting down...", sig)
+	case err := <-errCh:
+		log.Printf("Server error: %v", err)
 	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server stopped gracefully")
 }
 
 // registerTools registers all MCP tools on the server.
