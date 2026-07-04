@@ -161,14 +161,33 @@ Performs a full-text search across all documents.
 
 ---
 
+## Middleware Chain
+
+The server applies three middleware layers to every HTTP request, executed in this order:
+
+### 1. TokenMiddleware (`handlers/middleware.go`)
+
+Extracts the Paperless-ngx API token from the `Authorization` header. Supports both `Bearer <token>` and `Token <token>` schemes (case-insensitive). The raw token string is stored in the request context. Returns **401 Unauthorized** if the header is missing or malformed.
+
+### 2. BodyLimitMiddleware (`handlers/middleware.go`)
+
+Limits the request body size to 1 MB using `http.MaxBytesReader`, preventing resource exhaustion from large requests. Applicable only to requests with a body (POST to `/mcp`).
+
+### 3. injectClientMiddleware (`cmd/server/main.go`)
+
+Retrieves the token from the context (placed there by `TokenMiddleware`). Creates the Paperless-ngx API client and four application services (`DocumentService`, `CorrespondentService`, `DocumentTypeService`, `TagService`), then stores them in the request context for downstream tool handlers. Returns **401 Unauthorized** if the token is absent from context.
+
+No token verification is performed by this server — authentication and authorization are delegated entirely to the Paperless-ngx backend. The MCP server is a transparent proxy for the token.
+
 ## Authentication Flow
 
 1. MCP Client sends a POST request to the Streamable HTTP endpoint.
 2. The `Authorization: Bearer <paperless-api-token>` header is included in the request.
-3. The server middleware extracts the token, creates a `PaperlessClient` instance scoped to that request.
-4. The client is stored in the request context.
-5. Tool handlers retrieve the client from context and call Paperless-ngx API using the token.
-6. The token is never stored on the server — it exists only as long as the request is being processed.
+3. `TokenMiddleware` extracts the token from the header and stores it in the request context.
+4. `BodyLimitMiddleware` enforces the 1 MB request body limit.
+5. `injectClientMiddleware` creates a Paperless-ngx API client and builds application services, storing them in the context.
+6. Tool handlers retrieve services from context and call the Paperless-ngx API using the token.
+7. The token is never stored on the server — it exists only as long as the request is being processed.
 
 ## Error Handling
 
