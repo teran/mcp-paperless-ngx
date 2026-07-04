@@ -50,7 +50,7 @@ Authorization: Bearer <your-paperless-api-token>
 | `get_documents_by_correspondent` | List documents for a specific correspondent          |
 | `list_tags`                   | List all tags, optionally filtered by name               |
 | `get_documents_by_tag`        | List documents for a specific tag                        |
-| `fulltext_search`             | Full-text search with score and highlights               |
+| `fulltext_search`             | Full-text search with highlights                         |
 
 ## Quick Start
 

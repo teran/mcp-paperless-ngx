@@ -251,12 +251,15 @@ Authentication and authorization are handled entirely by the Paperless-ngx backe
 
 - Go 1.26+
 - golangci-lint (for linting)
-- goreleaser (for building)
+- goreleaser (highly recommended for building/releasing)
 
 ### Building
 
 ```bash
-# Build for the current platform (binary)
+# Quick build (no extra tools required)
+go build -o mcp-paperless-ngx ./cmd/server
+
+# Release build using goreleaser (recommended)
 goreleaser build --snapshot --clean
 # The binary will be in dist/ (path depends on OS/arch)
 
