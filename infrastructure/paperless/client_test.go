@@ -1888,7 +1888,7 @@ func TestClient_Search_Status201(t *testing.T) {
 // Helper: testing for exported error sentinel value
 // ---------------------------------------------------------------------------
 
-func TestClient_Error_ErrorMessageContainsStatusCode(t *testing.T) {
+func TestClient_Error_ErrorMessageContainsStatusCodeAndDetail(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
@@ -1907,8 +1907,11 @@ func TestClient_Error_ErrorMessageContainsStatusCode(t *testing.T) {
 	if !strings.Contains(errStr, "404") {
 		t.Errorf("error message does not contain status code 404: %q", errStr)
 	}
-	if strings.Contains(errStr, "Not found") {
-		t.Errorf("error message should NOT contain response body (security): %q", errStr)
+	if !strings.Contains(errStr, "Not found") {
+		t.Errorf("error message should contain response detail: %q", errStr)
+	}
+	if !errors.Is(err, paperless.ErrAPIClient) {
+		t.Errorf("error should wrap ErrAPIClient: %v", err)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/teran/mcp-paperless-ngx/domain"
@@ -259,10 +260,39 @@ func (c *Client) doRequest(ctx context.Context, path string, query url.Values) (
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API status=%d: %w", resp.StatusCode, ErrAPIClient)
+		detail := extractErrorDetail(body, resp.StatusCode)
+		return nil, fmt.Errorf("API status=%d: %s: %w", resp.StatusCode, detail, ErrAPIClient)
 	}
 
 	return body, nil
+}
+
+// extractErrorDetail extracts a human-readable detail from an error response body.
+// It first attempts to parse JSON {"detail": "..."} from Paperless-ngx, then falls
+// back to the first line of the body, truncated to 512 bytes to avoid leaking
+// large responses in error messages.
+func extractErrorDetail(body []byte, statusCode int) string {
+	if len(body) == 0 {
+		return http.StatusText(statusCode)
+	}
+
+	// Try JSON {"detail":"..."} first.
+	var errResp struct {
+		Detail string `json:"detail"`
+	}
+	if json.Unmarshal(body, &errResp) == nil && errResp.Detail != "" {
+		return errResp.Detail
+	}
+
+	// Fallback: take first line, sanitize.
+	detail := string(body)
+	if idx := strings.IndexAny(detail, "\n\r"); idx >= 0 {
+		detail = detail[:idx]
+	}
+	if len(detail) > 512 {
+		detail = detail[:512] + "..."
+	}
+	return detail
 }
 
 func buildSearchQuery(params domain.SearchDocumentsParams) url.Values {
