@@ -187,17 +187,27 @@ Performs a full-text search across all documents.
 
 ## Middleware Chain
 
-The server applies three middleware layers to every HTTP request, executed in this order:
+The server applies four middleware layers to every HTTP request, executed in this order:
 
-### 1. TokenMiddleware (`handlers/middleware.go`)
+### 1. BodyLimitMiddleware (`handlers/middleware.go`)
+
+The outermost middleware. Limits the request body size to 1 MB using `http.MaxBytesReader`, preventing resource exhaustion from large requests. Placed outermost so that `LoggingMiddleware` (next in the chain) can safely call `io.ReadAll` on the body without unbounded memory consumption — a maliciously large payload is rejected by `MaxBytesReader` before the logging middleware reads it into memory.
+
+### 2. LoggingMiddleware (`handlers/middleware.go`)
+
+Reads and buffers the request body to parse the JSON-RPC method name (and tool name for `tools/call` requests), then measures request duration and captures the HTTP status code and response body size via a wrapped `ResponseWriter`. Logs a single line at INFO level with the `mcp_log` prefix:
+
+```
+INFO mcp_log method=<name> duration=<Go duration> req_size=<bytes> resp_size=<bytes> status=<HTTP code>
+```
+
+For `tools/call` requests, the `method` field reports the tool name (e.g. `search_documents`). The `Authorization` header (Bearer token) is **never** logged — only the MCP method name, timing, body sizes, and HTTP status code are recorded.
+
+### 3. TokenMiddleware (`handlers/middleware.go`)
 
 Extracts the Paperless-ngx API token from the `Authorization` header. Supports both `Bearer <token>` and `Token <token>` schemes (case-insensitive). The raw token string is stored in the request context. Returns **401 Unauthorized** if the header is missing or malformed.
 
-### 2. BodyLimitMiddleware (`handlers/middleware.go`)
-
-Limits the request body size to 1 MB using `http.MaxBytesReader`, preventing resource exhaustion from large requests. Applicable only to requests with a body (POST to `/mcp`).
-
-### 3. injectClientMiddleware (`cmd/server/main.go`)
+### 4. injectClientMiddleware (`cmd/server/main.go`)
 
 Retrieves the token from the context (placed there by `TokenMiddleware`). Creates the Paperless-ngx API client and four application services (`DocumentService`, `CorrespondentService`, `DocumentTypeService`, `TagService`), then stores them in the request context for downstream tool handlers. Returns **401 Unauthorized** if the token is absent from context.
 
@@ -207,11 +217,13 @@ No token verification is performed by this server — authentication and authori
 
 1. MCP Client sends a POST request to the Streamable HTTP endpoint.
 2. The `Authorization: Bearer <paperless-api-token>` header is included in the request.
-3. `TokenMiddleware` extracts the token from the header and stores it in the request context.
-4. `BodyLimitMiddleware` enforces the 1 MB request body limit.
-5. `injectClientMiddleware` creates a Paperless-ngx API client and builds application services, storing them in the context.
-6. Tool handlers retrieve services from context and call the Paperless-ngx API using the token.
-7. The token is never stored on the server — it exists only as long as the request is being processed.
+3. `BodyLimitMiddleware` enforces the 1 MB request body limit, preventing large payloads from reaching downstream layers.
+4. `LoggingMiddleware` reads and buffers the bounded body, records the MCP method name and request size, and starts the duration timer (without logging the token).
+5. `TokenMiddleware` extracts the token from the header and stores it in the request context.
+6. `injectClientMiddleware` creates a Paperless-ngx API client and builds application services, storing them in the context.
+7. Tool handlers retrieve services from context and call the Paperless-ngx API using the token.
+8. On response, `LoggingMiddleware` emits the INFO log line with duration, response size, and HTTP status.
+9. The token is never stored on the server — it exists only as long as the request is being processed.
 
 ## Error Handling
 
@@ -243,7 +255,7 @@ Authentication and authorization are handled entirely by the Paperless-ngx backe
 
 - The server does **not** store or cache tokens.
 - The server must be deployed behind TLS in production.
-- The `Authorization` header is read-only; it never appears in logs or error messages.
+- The `Authorization` header is read-only; it never appears in logs or error messages. The `LoggingMiddleware` explicitly avoids logging header content — only the MCP method name, timing, body sizes, and HTTP status code are recorded.
 - No user management or session persistence is implemented — delegate to the MCP client layer.
 
 ## Development

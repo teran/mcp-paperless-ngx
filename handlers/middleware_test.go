@@ -387,6 +387,223 @@ func TestBodyLimitMiddleware(t *testing.T) {
 	})
 }
 
+// ============================================================
+// loggingResponseWriter tests
+// ============================================================
+
+func TestLoggingResponseWriter(t *testing.T) {
+	t.Parallel()
+
+	t.Run("captures status code and body size", func(t *testing.T) {
+		t.Parallel()
+
+		rr := httptest.NewRecorder()
+		lrw := &loggingResponseWriter{
+			ResponseWriter: rr,
+			statusCode:     http.StatusOK,
+		}
+
+		lrw.WriteHeader(http.StatusCreated)
+		n, err := lrw.Write([]byte("hello"))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if n != 5 {
+			t.Errorf("expected written bytes=5, got %d", n)
+		}
+		if lrw.statusCode != http.StatusCreated {
+			t.Errorf("expected status code %d, got %d", http.StatusCreated, lrw.statusCode)
+		}
+		if lrw.bodySize != 5 {
+			t.Errorf("expected body size 5, got %d", lrw.bodySize)
+		}
+	})
+
+	t.Run("accumulates body size across multiple writes", func(t *testing.T) {
+		t.Parallel()
+
+		rr := httptest.NewRecorder()
+		lrw := &loggingResponseWriter{
+			ResponseWriter: rr,
+			statusCode:     http.StatusOK,
+		}
+
+		_, _ = lrw.Write([]byte("abc"))
+		_, _ = lrw.Write([]byte("def"))
+		_, _ = lrw.Write([]byte("gh"))
+
+		if lrw.bodySize != 8 {
+			t.Errorf("expected body size 8, got %d", lrw.bodySize)
+		}
+	})
+
+	t.Run("default status code is 200", func(t *testing.T) {
+		t.Parallel()
+
+		rr := httptest.NewRecorder()
+		lrw := &loggingResponseWriter{
+			ResponseWriter: rr,
+			statusCode:     http.StatusOK,
+		}
+
+		_, _ = lrw.Write([]byte("data"))
+
+		if lrw.statusCode != http.StatusOK {
+			t.Errorf("expected default status %d, got %d", http.StatusOK, lrw.statusCode)
+		}
+	})
+}
+
+// ============================================================
+// mcpRequestMethod tests
+// ============================================================
+
+func TestMCPRequestMethod(t *testing.T) {
+	t.Parallel()
+
+	t.Run("tools/call with tool name", func(t *testing.T) {
+		t.Parallel()
+
+		body := []byte(`{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_documents","arguments":{"query":"test"}},"id":"1"}`)
+		method := mcpRequestMethod(body)
+		if method != "search_documents" {
+			t.Errorf("expected 'search_documents', got %q", method)
+		}
+	})
+
+	t.Run("initialize method", func(t *testing.T) {
+		t.Parallel()
+
+		body := []byte(`{"jsonrpc":"2.0","method":"initialize","params":{},"id":"1"}`)
+		method := mcpRequestMethod(body)
+		if method != "initialize" {
+			t.Errorf("expected 'initialize', got %q", method)
+		}
+	})
+
+	t.Run("tools/list method", func(t *testing.T) {
+		t.Parallel()
+
+		body := []byte(`{"jsonrpc":"2.0","method":"tools/list","id":"1"}`)
+		method := mcpRequestMethod(body)
+		if method != "tools/list" {
+			t.Errorf("expected 'tools/list', got %q", method)
+		}
+	})
+
+	t.Run("empty body returns unknown", func(t *testing.T) {
+		t.Parallel()
+
+		method := mcpRequestMethod([]byte{})
+		if method != "unknown" {
+			t.Errorf("expected 'unknown', got %q", method)
+		}
+	})
+
+	t.Run("invalid JSON returns unknown", func(t *testing.T) {
+		t.Parallel()
+
+		method := mcpRequestMethod([]byte(`not json`))
+		if method != "unknown" {
+			t.Errorf("expected 'unknown', got %q", method)
+		}
+	})
+}
+
+// ============================================================
+// LoggingMiddleware tests
+// ============================================================
+
+func TestLoggingMiddleware(t *testing.T) {
+	t.Parallel()
+
+	t.Run("logs tools/call method with payload sizes", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"id":"1","result":{"content":"ok"}}`))
+		})
+
+		handler := LoggingMiddleware(next)
+
+		body := `{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_documents","arguments":{"query":"test"}},"id":"1"}`
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", strings.NewReader(body))
+		rr := httptest.NewRecorder()
+
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", rr.Code)
+		}
+		if rr.Body.String() != `{"id":"1","result":{"content":"ok"}}` {
+			t.Errorf("unexpected response body: %q", rr.Body.String())
+		}
+	})
+
+	t.Run("preserves request body for downstream handlers", func(t *testing.T) {
+		t.Parallel()
+
+		var capturedBody []byte
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, _ := io.ReadAll(r.Body)
+			capturedBody = body
+			w.WriteHeader(http.StatusOK)
+		})
+
+		handler := LoggingMiddleware(next)
+
+		body := `{"jsonrpc":"2.0","method":"initialize","params":{},"id":"1"}`
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", strings.NewReader(body))
+		rr := httptest.NewRecorder()
+
+		handler.ServeHTTP(rr, req)
+
+		if string(capturedBody) != body {
+			t.Errorf("expected body %q, got %q", body, string(capturedBody))
+		}
+	})
+
+	t.Run("passes through on body read error", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+
+		handler := LoggingMiddleware(next)
+
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+		rr := httptest.NewRecorder()
+
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", rr.Code)
+		}
+	})
+
+	t.Run("logs unknown method for non-JSON body", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok"))
+		})
+
+		handler := LoggingMiddleware(next)
+
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", strings.NewReader("plain text body"))
+		rr := httptest.NewRecorder()
+
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", rr.Code)
+		}
+	})
+}
+
 func TestMaxBytesError(t *testing.T) {
 	t.Parallel()
 

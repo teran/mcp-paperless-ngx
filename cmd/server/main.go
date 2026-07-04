@@ -60,10 +60,16 @@ func main() {
 		},
 	)
 
-	// Wrap with middlewares: body limit → token extraction → client injection.
-	handler := handlers.TokenMiddleware(
-		handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
-			injectClientMiddleware(paperlessURL)(mcpHandler),
+	// Wrap with middlewares (outermost to innermost):
+	// body limit → logging → token extraction → client injection → MCP handler.
+	// BodyLimitMiddleware is outermost so that io.ReadAll in LoggingMiddleware
+	// is bounded by the 1 MB limit — a large malicious body is rejected before
+	// the logging middleware reads it into memory.
+	handler := handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
+		handlers.LoggingMiddleware(
+			handlers.TokenMiddleware(
+				injectClientMiddleware(paperlessURL)(mcpHandler),
+			),
 		),
 	)
 
