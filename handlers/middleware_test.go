@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -567,6 +568,79 @@ func TestMCPRequestMethod(t *testing.T) {
 // ============================================================
 // LoggingMiddleware tests
 // ============================================================
+
+// ============================================================
+// checkBatchSize tests
+// ============================================================
+
+func TestCheckBatchSize(t *testing.T) {
+	t.Parallel()
+
+	t.Run("single request not a batch", func(t *testing.T) {
+		t.Parallel()
+
+		body := []byte(`{"jsonrpc":"2.0","method":"ping","id":1}`)
+		if err := checkBatchSize(body); err != nil {
+			t.Errorf("expected nil, got %v", err)
+		}
+	})
+
+	t.Run("batch within limit", func(t *testing.T) {
+		t.Parallel()
+
+		items := make([]string, 50)
+		for i := range items {
+			items[i] = `{"jsonrpc":"2.0","method":"ping","id":` + fmt.Sprintf("%d", i+1) + `}`
+		}
+		body := []byte("[" + strings.Join(items, ",") + "]")
+		if err := checkBatchSize(body); err != nil {
+			t.Errorf("expected nil for batch size 50, got %v", err)
+		}
+	})
+
+	t.Run("batch exactly at limit", func(t *testing.T) {
+		t.Parallel()
+
+		items := make([]string, MaxBatchSize)
+		for i := range items {
+			items[i] = `{"jsonrpc":"2.0","method":"ping","id":` + fmt.Sprintf("%d", i+1) + `}`
+		}
+		body := []byte("[" + strings.Join(items, ",") + "]")
+		if err := checkBatchSize(body); err != nil {
+			t.Errorf("expected nil for batch size %d, got %v", MaxBatchSize, err)
+		}
+	})
+
+	t.Run("batch exceeding limit", func(t *testing.T) {
+		t.Parallel()
+
+		items := make([]string, MaxBatchSize+1)
+		for i := range items {
+			items[i] = `{"jsonrpc":"2.0","method":"ping","id":` + fmt.Sprintf("%d", i+1) + `}`
+		}
+		body := []byte("[" + strings.Join(items, ",") + "]")
+		if err := checkBatchSize(body); err == nil {
+			t.Errorf("expected error for batch size %d, got nil", MaxBatchSize+1)
+		}
+	})
+
+	t.Run("empty body", func(t *testing.T) {
+		t.Parallel()
+
+		if err := checkBatchSize([]byte{}); err != nil {
+			t.Errorf("expected nil for empty body, got %v", err)
+		}
+	})
+
+	t.Run("malformed batch JSON", func(t *testing.T) {
+		t.Parallel()
+
+		body := []byte(`[invalid json`)
+		if err := checkBatchSize(body); err != nil {
+			t.Errorf("expected nil for malformed batch (caught downstream), got %v", err)
+		}
+	})
+}
 
 func TestLoggingMiddleware(t *testing.T) {
 	t.Parallel()

@@ -5,12 +5,34 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
 )
+
+// checkBatchSize validates JSON-RPC batch request size.
+// If the body starts with '[', it is a batch request — the function parses
+// it as an array and returns an error if len(array) > MaxBatchSize.
+// Non-batch requests (starting with '{' or empty) are always accepted.
+func checkBatchSize(body []byte) error {
+	trimmed := bytes.TrimLeftFunc(body, unicode.IsSpace)
+	if len(trimmed) == 0 || trimmed[0] != '[' {
+		return nil // not a batch request
+	}
+
+	var batch []json.RawMessage
+	if err := json.Unmarshal(trimmed, &batch); err != nil {
+		return nil // malformed JSON will be caught downstream
+	}
+	if len(batch) > MaxBatchSize {
+		return fmt.Errorf("batch size %d exceeds maximum of %d", len(batch), MaxBatchSize)
+	}
+	return nil
+}
 
 type paperlessClientKey struct{}
 
@@ -27,6 +49,12 @@ func ClientFromContext(ctx context.Context) any {
 
 // DefaultMaxRequestBodySize is the maximum allowed size for a request body (1 MB).
 const DefaultMaxRequestBodySize = 1 << 20
+
+// MaxBatchSize is the maximum number of JSON-RPC requests allowed in a
+// single batch. Batches larger than this are rejected to prevent
+// amplification attacks where a single HTTP request triggers many
+// upstream API calls to Paperless-ngx.
+const MaxBatchSize = 100
 
 // MaxTokenLength is the maximum allowed length for an API token.
 // Tokens longer than this are rejected to prevent DoS via oversized
@@ -121,6 +149,13 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 
 		reqSize := len(body)
 		mcpMethod := sanitizeLog(mcpRequestMethod(body))
+
+		// Reject batch requests that exceed MaxBatchSize to prevent
+		// amplification attacks.
+		if err := checkBatchSize(body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		// Wrap ResponseWriter to capture response size.
 		lrw := &loggingResponseWriter{
