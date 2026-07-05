@@ -284,6 +284,60 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,maintidx
 			t.Errorf("expected status 401, got %d", rr.Code)
 		}
 	})
+
+	t.Run("token exceeding MaxTokenLength returns 401", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			t.Error("next handler should not be called with oversized token")
+		})
+
+		handler := TokenMiddleware(next)
+
+		longToken := strings.Repeat("A", MaxTokenLength+1)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req.Header.Set("Authorization", "Bearer "+longToken)
+
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusUnauthorized {
+			t.Errorf("expected status 401, got %d", rr.Code)
+		}
+	})
+
+	t.Run("token at MaxTokenLength passes through", func(t *testing.T) {
+		t.Parallel()
+
+		var capturedToken string
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			raw := ClientFromContext(r.Context())
+			if raw != nil {
+				var ok bool
+				capturedToken, ok = raw.(string)
+				if !ok {
+					t.Error("expected string type from context")
+				}
+			}
+			w.WriteHeader(http.StatusOK)
+		})
+
+		handler := TokenMiddleware(next)
+
+		token := strings.Repeat("B", MaxTokenLength)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", rr.Code)
+		}
+		if capturedToken != token {
+			t.Errorf("expected token of length %d, got length %d", MaxTokenLength, len(capturedToken))
+		}
+	})
 }
 
 // ============================================================

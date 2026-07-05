@@ -28,6 +28,11 @@ func ClientFromContext(ctx context.Context) any {
 // DefaultMaxRequestBodySize is the maximum allowed size for a request body (1 MB).
 const DefaultMaxRequestBodySize = 1 << 20
 
+// MaxTokenLength is the maximum allowed length for an API token.
+// Tokens longer than this are rejected to prevent DoS via oversized
+// Authorization headers forwarded to the Paperless-ngx backend.
+const MaxTokenLength = 512
+
 // BodyLimitMiddleware limits the request body size to maxBytes.
 // The size limit is enforced before the body reaches downstream handlers,
 // preventing resource exhaustion from large requests.
@@ -150,6 +155,11 @@ func TokenMiddleware(next http.Handler) http.Handler {
 		}
 
 		if token == "" {
+			http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
+			return
+		}
+
+		if len(token) > MaxTokenLength {
 			http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
 			return
 		}
