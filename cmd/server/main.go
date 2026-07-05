@@ -106,12 +106,14 @@ func main() {
 	log.Printf("Paperless-ngx URL: %s", handlers.SanitizeLog(paperlessURL))
 	log.Printf("Version: %s, commit: %s, built: %s", version, commit, date)
 
+	writeTimeout := parseDurationSeconds(os.Getenv("WRITE_TIMEOUT"), 300)
+
 	httpServer := &http.Server{ //nolint:exhaustruct
 		Addr:              listenAddr,
 		Handler:           handler,
 		ReadHeaderTimeout: 30 * time.Second,
 		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      0, // streaming MCP responses
+		WriteTimeout:      writeTimeout,
 		IdleTimeout:       120 * time.Second,
 	}
 
@@ -182,6 +184,20 @@ func parseRateLimit(val string, defaultVal int) int {
 		return defaultVal
 	}
 	return n
+}
+
+// parseDurationSeconds parses an integer number of seconds from an
+// environment variable. Returns the default value if the env var is empty
+// or invalid. A value of 0 disables the timeout for streaming use cases.
+func parseDurationSeconds(val string, defaultVal int) time.Duration {
+	if val == "" {
+		return time.Duration(defaultVal) * time.Second
+	}
+	n, err := strconv.Atoi(val)
+	if err != nil || n < 0 {
+		return time.Duration(defaultVal) * time.Second
+	}
+	return time.Duration(n) * time.Second
 }
 
 // sanitizeLog is deprecated; use handlers.SanitizeLog instead.
