@@ -253,7 +253,9 @@ func (c *Client) doRequest(ctx context.Context, path string, query url.Values) (
 		_ = resp.Body.Close()
 	}()
 
-	body, err := io.ReadAll(resp.Body)
+	// Limit response body to 100 MB to prevent memory exhaustion
+	// from oversized responses (e.g. a document with a very large OCR text).
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 100<<20))
 	if err != nil {
 		return nil, fmt.Errorf("read response body: %w", err)
 	}
