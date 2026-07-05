@@ -8,10 +8,19 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/teran/mcp-paperless-ngx/domain"
 	"github.com/teran/mcp-paperless-ngx/infrastructure/paperless"
 )
+
+// testHTTPClient is a shared HTTP client for tests that never follows redirects.
+var testHTTPClient = &http.Client{ //nolint:gochecknoglobals
+	Timeout: 5 * time.Second,
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
 
 // ---------------------------------------------------------------------------
 // helper functions
@@ -25,7 +34,7 @@ func newTestServer(handler func(w http.ResponseWriter, r *http.Request)) *httpte
 
 // newClient builds a paperless.Client pointed at the given baseURL.
 func newClient(baseURL string) *paperless.Client {
-	return paperless.NewClient(baseURL, "test-token-123")
+	return paperless.NewClient(baseURL, "test-token-123", testHTTPClient)
 }
 
 // assertQueryParam checks that the query string in the request contains the
@@ -1069,7 +1078,7 @@ func TestClient_Error_NetworkError(t *testing.T) {
 	t.Parallel()
 
 	// Point at a server that will never respond (unreachable).
-	client := paperless.NewClient("http://127.0.0.1:1", "test-token")
+	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
 	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
 	if err == nil {
@@ -1080,7 +1089,7 @@ func TestClient_Error_NetworkError(t *testing.T) {
 func TestClient_Error_NetworkError_GetByID(t *testing.T) {
 	t.Parallel()
 
-	client := paperless.NewClient("http://127.0.0.1:1", "test-token")
+	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
 	_, err := client.GetByID(context.Background(), 1)
 	if err == nil {
@@ -1091,7 +1100,7 @@ func TestClient_Error_NetworkError_GetByID(t *testing.T) {
 func TestClient_Error_NetworkError_SearchCorrespondents(t *testing.T) {
 	t.Parallel()
 
-	client := paperless.NewClient("http://127.0.0.1:1", "test-token")
+	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
 	_, err := client.SearchCorrespondents(context.Background(), "", 1, 25)
 	if err == nil {
@@ -1102,7 +1111,7 @@ func TestClient_Error_NetworkError_SearchCorrespondents(t *testing.T) {
 func TestClient_Error_NetworkError_ListTags(t *testing.T) {
 	t.Parallel()
 
-	client := paperless.NewClient("http://127.0.0.1:1", "test-token")
+	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
 	_, err := client.ListTags(context.Background(), "", 1, 25)
 	if err == nil {
@@ -1574,7 +1583,7 @@ func TestClient_GetCorrespondentByID_Error_500(t *testing.T) {
 func TestClient_GetCorrespondentByID_NetworkError(t *testing.T) {
 	t.Parallel()
 
-	client := paperless.NewClient("http://127.0.0.1:1", "test-token")
+	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
 	_, err := client.GetCorrespondentByID(context.Background(), 5)
 	if err == nil {
@@ -1736,7 +1745,7 @@ func TestClient_GetDocumentTypeByID_Error_500(t *testing.T) {
 func TestClient_GetDocumentTypeByID_NetworkError(t *testing.T) {
 	t.Parallel()
 
-	client := paperless.NewClient("http://127.0.0.1:1", "test-token")
+	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
 	_, err := client.GetDocumentTypeByID(context.Background(), 2)
 	if err == nil {

@@ -37,6 +37,23 @@ func main() {
 		listenAddr = ":8080"
 	}
 
+	// sharedHTTPClient is reused across requests for connection pooling.
+	// CheckRedirect is set to http.ErrUseLastResponse to prevent credential
+	// forwarding — the http.Client never follows redirects, so the token
+	// cannot be leaked to an external URL via a 302 response from Paperless-ngx.
+	sharedHTTPClient := &http.Client{ //nolint:exhaustruct
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+		Transport: &http.Transport{ //nolint:exhaustruct
+			MaxIdleConns:        100,
+			IdleConnTimeout:     90 * time.Second,
+			DisableCompression:  false,
+			DisableKeepAlives:   false,
+		},
+	}
+
 	// Create the MCP server instance.
 	srv := mcp.NewServer(&mcp.Implementation{ //nolint:exhaustruct
 		Name:    "mcp-paperless-ngx",
@@ -68,7 +85,7 @@ func main() {
 	handler := handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
 		handlers.LoggingMiddleware(
 			handlers.TokenMiddleware(
-				injectClientMiddleware(paperlessURL)(mcpHandler),
+				injectClientMiddleware(paperlessURL, sharedHTTPClient)(mcpHandler),
 			),
 		),
 	)
@@ -118,7 +135,7 @@ func main() {
 
 // injectClientMiddleware creates the Paperless-ngx client and attaches
 // application services to the context.
-func injectClientMiddleware(paperlessURL string) func(http.Handler) http.Handler {
+func injectClientMiddleware(paperlessURL string, sharedHTTPClient *http.Client) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw, _ := handlers.ClientFromContext(r.Context()).(string)
@@ -127,7 +144,7 @@ func injectClientMiddleware(paperlessURL string) func(http.Handler) http.Handler
 				return
 			}
 
-			client := infra.NewClient(paperlessURL, raw)
+			client := infra.NewClient(paperlessURL, raw, sharedHTTPClient)
 
 			// Build application services using adapters and store in context.
 			docSvc := application.NewDocumentService(client)

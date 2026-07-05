@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/teran/mcp-paperless-ngx/domain"
 )
@@ -24,14 +23,14 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// NewClient creates a new Paperless-ngx API client.
-func NewClient(baseURL, authToken string) *Client {
+// NewClient creates a new Paperless-ngx API client with the given HTTP client.
+// The caller should provide an *http.Client with CheckRedirect set to prevent
+// credential forwarding, and a shared Transport for connection reuse.
+func NewClient(baseURL, authToken string, httpClient *http.Client) *Client {
 	return &Client{
-		baseURL:   baseURL,
-		authToken: authToken,
-		httpClient: &http.Client{ //nolint:exhaustruct
-			Timeout: 30 * time.Second,
-		},
+		baseURL:    baseURL,
+		authToken:  authToken,
+		httpClient: httpClient,
 	}
 }
 

@@ -10,6 +10,13 @@ import (
 	"github.com/teran/mcp-paperless-ngx/handlers"
 )
 
+// testHTTPClient is a shared HTTP client for tests that never follows redirects.
+var testHTTPClient = &http.Client{ //nolint:gochecknoglobals
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
+
 // ---------------------------------------------------------------------------
 // sanitizeLog tests
 // ---------------------------------------------------------------------------
@@ -48,7 +55,7 @@ func TestInjectClientMiddleware(t *testing.T) {
 	t.Parallel()
 
 	t.Run("with valid token in context creates services and passes through", func(t *testing.T) {
-		middleware := injectClientMiddleware("http://paperless:8000")
+		middleware := injectClientMiddleware("http://paperless:8000", testHTTPClient)
 
 		var handlerCalled bool
 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +94,7 @@ func TestInjectClientMiddleware(t *testing.T) {
 	})
 
 	t.Run("missing token in context returns 401", func(t *testing.T) {
-		middleware := injectClientMiddleware("http://paperless:8000")
+		middleware := injectClientMiddleware("http://paperless:8000", testHTTPClient)
 
 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			t.Error("next handler should not be called when token is missing")
