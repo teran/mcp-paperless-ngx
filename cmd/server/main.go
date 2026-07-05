@@ -117,6 +117,17 @@ func main() {
 	)
 
 	//nolint:gosec // env vars are server-side config
+	// Health-check endpoint — bypasses all middleware (auth, rate limit, etc.)
+	// so that load balancers and orchestrators always get a 200 when the server
+	// is alive, regardless of token state.
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+	mux.Handle("/", handler)
+
 	log.Printf("Paperless-ngx URL: %s", handlers.SanitizeLog(paperlessURL))
 	log.Printf("Version: %s, commit: %s, built: %s", version, commit, date)
 
@@ -124,7 +135,7 @@ func main() {
 
 	httpServer := &http.Server{ //nolint:exhaustruct
 		Addr:              listenAddr,
-		Handler:           handler,
+		Handler:           mux,
 		ReadHeaderTimeout: 30 * time.Second,
 		ReadTimeout:       60 * time.Second,
 		WriteTimeout:      writeTimeout,

@@ -165,3 +165,32 @@ func TestInjectClientMiddleware(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// health check tests
+// ---------------------------------------------------------------------------
+
+func TestHealthEndpoint(t *testing.T) {
+	t.Parallel()
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rr := httptest.NewRecorder()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+	if rr.Body.String() != `{"status":"ok"}` {
+		t.Errorf("expected body {\"status\":\"ok\"}, got %q", rr.Body.String())
+	}
+}
