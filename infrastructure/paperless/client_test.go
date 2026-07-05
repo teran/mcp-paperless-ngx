@@ -245,7 +245,7 @@ func TestClient_Search_WithQuery(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
+	result, err := client.Search(t.Context(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		Query: "bank statement",
 		Page:  1, PageSize: 25,
 	})
@@ -304,7 +304,7 @@ func TestClient_Search_WithCorrespondentID(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
+	result, err := client.Search(t.Context(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		CorrespondentID: 5,
 	})
 	if err != nil {
@@ -347,7 +347,7 @@ func TestClient_Search_WithTagIDs(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
+	result, err := client.Search(t.Context(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		TagIDs: []int{7, 12, 15},
 	})
 	if err != nil {
@@ -377,7 +377,7 @@ func TestClient_Search_WithDateRange(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
+	result, err := client.Search(t.Context(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		CreatedAfter:  "2024-01-01", //nolint:goconst
 		CreatedBefore: "2024-03-31",
 	})
@@ -414,7 +414,7 @@ func TestClient_Search_WithPagination(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
+	result, err := client.Search(t.Context(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		Page:     3,
 		PageSize: 10,
 	})
@@ -450,7 +450,7 @@ func TestClient_Search_WithEmptyParams(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
+	result, err := client.Search(t.Context(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		Page:     1,
 		PageSize: 25,
 	})
@@ -476,7 +476,7 @@ func TestClient_Search_EmptyResults(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
+	result, err := client.Search(t.Context(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		Query: "nonexistent",
 	})
 	if err != nil {
@@ -511,7 +511,7 @@ func TestClient_Search_RequestValidation(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
+	_, err := client.Search(t.Context(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -542,7 +542,7 @@ func TestClient_GetByID_Existing(t *testing.T) { //nolint:gocognit
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	doc, err := client.GetByID(context.Background(), 123)
+	doc, err := client.GetByID(t.Context(), 123)
 	if err != nil {
 		t.Fatalf("GetByID() error = %v", err)
 	}
@@ -625,7 +625,7 @@ func TestClient_GetByID_NotFound(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetByID(context.Background(), 999)
+	_, err := client.GetByID(t.Context(), 999)
 	if err == nil {
 		t.Fatal("GetByID() expected error, got nil")
 	}
@@ -647,7 +647,7 @@ func TestClient_GetByID_NullFields(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	doc, err := client.GetByID(context.Background(), 456)
+	doc, err := client.GetByID(t.Context(), 456)
 	if err != nil {
 		t.Fatalf("GetByID() error = %v", err)
 	}
@@ -722,7 +722,7 @@ func TestClient_SearchCorrespondents_ByName(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.SearchCorrespondents(context.Background(), "acme", 1, 25)
+	result, err := client.SearchCorrespondents(t.Context(), "acme", 1, 25)
 	if err != nil {
 		t.Fatalf("SearchCorrespondents() error = %v", err)
 	}
@@ -783,7 +783,7 @@ func TestClient_SearchCorrespondents_EmptyQuery(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.SearchCorrespondents(context.Background(), "", 1, 25)
+	result, err := client.SearchCorrespondents(t.Context(), "", 1, 25)
 	if err != nil {
 		t.Fatalf("SearchCorrespondents() error = %v", err)
 	}
@@ -824,7 +824,7 @@ func TestClient_SearchCorrespondents_Pagination(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.SearchCorrespondents(context.Background(), "", 2, 50)
+	result, err := client.SearchCorrespondents(t.Context(), "", 2, 50)
 	if err != nil {
 		t.Fatalf("SearchCorrespondents() error = %v", err)
 	}
@@ -853,7 +853,7 @@ func TestClient_SearchCorrespondents_EmptyResults(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.SearchCorrespondents(context.Background(), "zzz_nonexistent", 1, 25)
+	result, err := client.SearchCorrespondents(t.Context(), "zzz_nonexistent", 1, 25)
 	if err != nil {
 		t.Fatalf("SearchCorrespondents() error = %v", err)
 	}
@@ -895,7 +895,7 @@ func TestClient_ListTags_All(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.ListTags(context.Background(), "", 1, 25)
+	result, err := client.ListTags(t.Context(), "", 1, 25)
 	if err != nil {
 		t.Fatalf("ListTags() error = %v", err)
 	}
@@ -965,7 +965,7 @@ func TestClient_ListTags_FilterByName(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.ListTags(context.Background(), "invoice", 1, 25)
+	result, err := client.ListTags(t.Context(), "invoice", 1, 25)
 	if err != nil {
 		t.Fatalf("ListTags() error = %v", err)
 	}
@@ -996,7 +996,7 @@ func TestClient_ListTags_Pagination(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.ListTags(context.Background(), "", 3, 10)
+	result, err := client.ListTags(t.Context(), "", 3, 10)
 	if err != nil {
 		t.Fatalf("ListTags() error = %v", err)
 	}
@@ -1019,7 +1019,7 @@ func TestClient_ListTags_EmptyResults(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.ListTags(context.Background(), "nonexistent", 1, 25)
+	result, err := client.ListTags(t.Context(), "nonexistent", 1, 25)
 	if err != nil {
 		t.Fatalf("ListTags() error = %v", err)
 	}
@@ -1046,7 +1046,7 @@ func TestClient_Error_401(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
+	_, err := client.Search(t.Context(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("Search() expected error, got nil")
 	}
@@ -1065,7 +1065,7 @@ func TestClient_Error_500(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetByID(context.Background(), 1)
+	_, err := client.GetByID(t.Context(), 1)
 	if err == nil {
 		t.Fatal("GetByID() expected error, got nil")
 	}
@@ -1080,7 +1080,7 @@ func TestClient_Error_NetworkError(t *testing.T) {
 	// Point at a server that will never respond (unreachable).
 	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
+	_, err := client.Search(t.Context(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("Search() expected error for unreachable server, got nil")
 	}
@@ -1091,7 +1091,7 @@ func TestClient_Error_NetworkError_GetByID(t *testing.T) {
 
 	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
-	_, err := client.GetByID(context.Background(), 1)
+	_, err := client.GetByID(t.Context(), 1)
 	if err == nil {
 		t.Fatal("GetByID() expected error for unreachable server, got nil")
 	}
@@ -1102,7 +1102,7 @@ func TestClient_Error_NetworkError_SearchCorrespondents(t *testing.T) {
 
 	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
-	_, err := client.SearchCorrespondents(context.Background(), "", 1, 25)
+	_, err := client.SearchCorrespondents(t.Context(), "", 1, 25)
 	if err == nil {
 		t.Fatal("SearchCorrespondents() expected error for unreachable server, got nil")
 	}
@@ -1113,7 +1113,7 @@ func TestClient_Error_NetworkError_ListTags(t *testing.T) {
 
 	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
-	_, err := client.ListTags(context.Background(), "", 1, 25)
+	_, err := client.ListTags(t.Context(), "", 1, 25)
 	if err == nil {
 		t.Fatal("ListTags() expected error for unreachable server, got nil")
 	}
@@ -1133,7 +1133,7 @@ func TestClient_SearchCorrespondents_Error_401(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.SearchCorrespondents(context.Background(), "anything", 1, 25)
+	_, err := client.SearchCorrespondents(t.Context(), "anything", 1, 25)
 	if err == nil {
 		t.Fatal("SearchCorrespondents() expected error, got nil")
 	}
@@ -1152,7 +1152,7 @@ func TestClient_SearchCorrespondents_Error_500(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.SearchCorrespondents(context.Background(), "anything", 1, 25)
+	_, err := client.SearchCorrespondents(t.Context(), "anything", 1, 25)
 	if err == nil {
 		t.Fatal("SearchCorrespondents() expected error, got nil")
 	}
@@ -1171,7 +1171,7 @@ func TestClient_ListTags_Error_401(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.ListTags(context.Background(), "", 1, 25)
+	_, err := client.ListTags(t.Context(), "", 1, 25)
 	if err == nil {
 		t.Fatal("ListTags() expected error, got nil")
 	}
@@ -1190,7 +1190,7 @@ func TestClient_ListTags_Error_500(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.ListTags(context.Background(), "", 1, 25)
+	_, err := client.ListTags(t.Context(), "", 1, 25)
 	if err == nil {
 		t.Fatal("ListTags() expected error, got nil")
 	}
@@ -1214,7 +1214,7 @@ func TestClient_Search_MalformedJSON(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
+	_, err := client.Search(t.Context(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("Search() expected error for malformed JSON, got nil")
 	}
@@ -1231,7 +1231,7 @@ func TestClient_GetByID_MalformedJSON(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetByID(context.Background(), 123)
+	_, err := client.GetByID(t.Context(), 123)
 	if err == nil {
 		t.Fatal("GetByID() expected error for malformed JSON, got nil")
 	}
@@ -1252,7 +1252,7 @@ func TestClient_Search_ContextCancelled(t *testing.T) {
 
 	client := newClient(srv.URL)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	_, err := client.Search(ctx, domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
@@ -1271,7 +1271,7 @@ func TestClient_GetByID_ContextCancelled(t *testing.T) {
 
 	client := newClient(srv.URL)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	_, err := client.GetByID(ctx, 123)
@@ -1323,7 +1323,7 @@ func TestClient_Search_QueryParamsUsed(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{
+	result, err := client.Search(t.Context(), domain.SearchDocumentsParams{
 		Query:           "test",
 		CorrespondentID: 3,
 		TagIDs:          []int{1, 2},
@@ -1376,7 +1376,7 @@ func TestClient_CorrespondentRepo_Search(t *testing.T) {
 	client := newClient(srv.URL)
 	repo := paperless.NewCorrespondentRepo(client)
 
-	result, err := repo.Search(context.Background(), "acme", 1, 25)
+	result, err := repo.Search(t.Context(), "acme", 1, 25)
 	if err != nil {
 		t.Fatalf("CorrespondentRepo.Search() error = %v", err)
 	}
@@ -1411,7 +1411,7 @@ func TestClient_TagRepo_List(t *testing.T) {
 	client := newClient(srv.URL)
 	repo := paperless.NewTagRepo(client)
 
-	result, err := repo.List(context.Background(), "", 1, 25)
+	result, err := repo.List(t.Context(), "", 1, 25)
 	if err != nil {
 		t.Fatalf("TagRepo.List() error = %v", err)
 	}
@@ -1451,7 +1451,7 @@ func TestClient_GetCorrespondentByID_Existing(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	corr, err := client.GetCorrespondentByID(context.Background(), 5)
+	corr, err := client.GetCorrespondentByID(t.Context(), 5)
 	if err != nil {
 		t.Fatalf("GetCorrespondentByID() error = %v", err)
 	}
@@ -1497,7 +1497,7 @@ func TestClient_GetCorrespondentByID_NotFound(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetCorrespondentByID(context.Background(), 999)
+	_, err := client.GetCorrespondentByID(t.Context(), 999)
 	if err == nil {
 		t.Fatal("GetCorrespondentByID() expected error, got nil")
 	}
@@ -1517,7 +1517,7 @@ func TestClient_GetCorrespondentByID_MalformedJSON(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetCorrespondentByID(context.Background(), 5)
+	_, err := client.GetCorrespondentByID(t.Context(), 5)
 	if err == nil {
 		t.Fatal("GetCorrespondentByID() expected error for malformed JSON, got nil")
 	}
@@ -1533,7 +1533,7 @@ func TestClient_GetCorrespondentByID_ContextCancelled(t *testing.T) {
 
 	client := newClient(srv.URL)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	_, err := client.GetCorrespondentByID(ctx, 5)
@@ -1552,7 +1552,7 @@ func TestClient_GetCorrespondentByID_Error_401(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetCorrespondentByID(context.Background(), 5)
+	_, err := client.GetCorrespondentByID(t.Context(), 5)
 	if err == nil {
 		t.Fatal("GetCorrespondentByID() expected error, got nil")
 	}
@@ -1571,7 +1571,7 @@ func TestClient_GetCorrespondentByID_Error_500(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetCorrespondentByID(context.Background(), 5)
+	_, err := client.GetCorrespondentByID(t.Context(), 5)
 	if err == nil {
 		t.Fatal("GetCorrespondentByID() expected error, got nil")
 	}
@@ -1585,7 +1585,7 @@ func TestClient_GetCorrespondentByID_NetworkError(t *testing.T) {
 
 	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
-	_, err := client.GetCorrespondentByID(context.Background(), 5)
+	_, err := client.GetCorrespondentByID(t.Context(), 5)
 	if err == nil {
 		t.Fatal("GetCorrespondentByID() expected error for unreachable server, got nil")
 	}
@@ -1616,7 +1616,7 @@ func TestClient_GetDocumentTypeByID_Existing(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	dt, err := client.GetDocumentTypeByID(context.Background(), 2)
+	dt, err := client.GetDocumentTypeByID(t.Context(), 2)
 	if err != nil {
 		t.Fatalf("GetDocumentTypeByID() error = %v", err)
 	}
@@ -1659,7 +1659,7 @@ func TestClient_GetDocumentTypeByID_NotFound(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetDocumentTypeByID(context.Background(), 999)
+	_, err := client.GetDocumentTypeByID(t.Context(), 999)
 	if err == nil {
 		t.Fatal("GetDocumentTypeByID() expected error, got nil")
 	}
@@ -1679,7 +1679,7 @@ func TestClient_GetDocumentTypeByID_MalformedJSON(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetDocumentTypeByID(context.Background(), 2)
+	_, err := client.GetDocumentTypeByID(t.Context(), 2)
 	if err == nil {
 		t.Fatal("GetDocumentTypeByID() expected error for malformed JSON, got nil")
 	}
@@ -1695,7 +1695,7 @@ func TestClient_GetDocumentTypeByID_ContextCancelled(t *testing.T) {
 
 	client := newClient(srv.URL)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	_, err := client.GetDocumentTypeByID(ctx, 2)
@@ -1714,7 +1714,7 @@ func TestClient_GetDocumentTypeByID_Error_401(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetDocumentTypeByID(context.Background(), 2)
+	_, err := client.GetDocumentTypeByID(t.Context(), 2)
 	if err == nil {
 		t.Fatal("GetDocumentTypeByID() expected error, got nil")
 	}
@@ -1733,7 +1733,7 @@ func TestClient_GetDocumentTypeByID_Error_500(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetDocumentTypeByID(context.Background(), 2)
+	_, err := client.GetDocumentTypeByID(t.Context(), 2)
 	if err == nil {
 		t.Fatal("GetDocumentTypeByID() expected error, got nil")
 	}
@@ -1747,7 +1747,7 @@ func TestClient_GetDocumentTypeByID_NetworkError(t *testing.T) {
 
 	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
 
-	_, err := client.GetDocumentTypeByID(context.Background(), 2)
+	_, err := client.GetDocumentTypeByID(t.Context(), 2)
 	if err == nil {
 		t.Fatal("GetDocumentTypeByID() expected error for unreachable server, got nil")
 	}
@@ -1774,7 +1774,7 @@ func TestClient_CorrespondentRepo_GetByID(t *testing.T) {
 	client := newClient(srv.URL)
 	repo := paperless.NewCorrespondentRepo(client)
 
-	corr, err := repo.GetByID(context.Background(), 5)
+	corr, err := repo.GetByID(t.Context(), 5)
 	if err != nil {
 		t.Fatalf("CorrespondentRepo.GetByID() error = %v", err)
 	}
@@ -1798,7 +1798,7 @@ func TestClient_CorrespondentRepo_GetByID_NotFound(t *testing.T) {
 	client := newClient(srv.URL)
 	repo := paperless.NewCorrespondentRepo(client)
 
-	_, err := repo.GetByID(context.Background(), 999)
+	_, err := repo.GetByID(t.Context(), 999)
 	if err == nil {
 		t.Fatal("CorrespondentRepo.GetByID() expected error, got nil")
 	}
@@ -1834,7 +1834,7 @@ func TestClient_DocumentTypeRepo_GetByID(t *testing.T) {
 	client := newClient(srv.URL)
 	repo := paperless.NewDocumentTypeRepo(client)
 
-	dt, err := repo.GetByID(context.Background(), 2)
+	dt, err := repo.GetByID(t.Context(), 2)
 	if err != nil {
 		t.Fatalf("DocumentTypeRepo.GetByID() error = %v", err)
 	}
@@ -1858,7 +1858,7 @@ func TestClient_DocumentTypeRepo_GetByID_NotFound(t *testing.T) {
 	client := newClient(srv.URL)
 	repo := paperless.NewDocumentTypeRepo(client)
 
-	_, err := repo.GetByID(context.Background(), 999)
+	_, err := repo.GetByID(t.Context(), 999)
 	if err == nil {
 		t.Fatal("DocumentTypeRepo.GetByID() expected error, got nil")
 	}
@@ -1884,7 +1884,7 @@ func TestClient_Search_Status201(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
+	result, err := client.Search(t.Context(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 	if err != nil {
 		t.Fatalf("Search() error = %v", err)
 	}
@@ -1907,7 +1907,7 @@ func TestClient_Error_ErrorMessageContainsStatusCodeAndDetail(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.GetByID(context.Background(), 999)
+	_, err := client.GetByID(t.Context(), 999)
 	if err == nil {
 		t.Fatal("GetByID() expected error, got nil")
 	}
@@ -1946,7 +1946,7 @@ func TestClient_Search_WithExplicitPagination(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	result, err := client.Search(context.Background(), domain.SearchDocumentsParams{ //nolint:exhaustruct
+	result, err := client.Search(t.Context(), domain.SearchDocumentsParams{ //nolint:exhaustruct
 		Page:     2,
 		PageSize: 50,
 	})
@@ -1972,7 +1972,7 @@ func TestClient_Search_Status300_Rejected(t *testing.T) {
 	defer srv.Close()
 
 	client := newClient(srv.URL)
-	_, err := client.Search(context.Background(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
+	_, err := client.Search(t.Context(), domain.SearchDocumentsParams{}) //nolint:exhaustruct
 	if err == nil {
 		t.Fatal("expected error for HTTP 300")
 	}

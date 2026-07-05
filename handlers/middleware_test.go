@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -25,7 +24,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer my-secret-token")
 
 		rr := httptest.NewRecorder()
@@ -50,7 +49,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Token token-via-old-scheme")
 
 		rr := httptest.NewRecorder()
@@ -75,7 +74,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "BEARER uppercase-bearer")
 
 		rr := httptest.NewRecorder()
@@ -100,7 +99,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "TOKEN upper-token")
 
 		rr := httptest.NewRecorder()
@@ -125,7 +124,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer   token-with-spaces   ")
 
 		rr := httptest.NewRecorder()
@@ -148,7 +147,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		// No Authorization header set.
 
 		rr := httptest.NewRecorder()
@@ -172,7 +171,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer ")
 
 		rr := httptest.NewRecorder()
@@ -196,7 +195,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer")
 
 		rr := httptest.NewRecorder()
@@ -216,7 +215,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
 
 		rr := httptest.NewRecorder()
@@ -240,7 +239,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 
 		handler := TokenMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", " Bearer leading-whitespace")
 
 		rr := httptest.NewRecorder()
@@ -261,7 +260,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 		handler := TokenMiddleware(next)
 
 		longToken := strings.Repeat("A", MaxTokenLength+1)
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer "+longToken)
 
 		rr := httptest.NewRecorder()
@@ -284,7 +283,7 @@ func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 		handler := TokenMiddleware(next)
 
 		token := strings.Repeat("B", MaxTokenLength)
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
 
 		rr := httptest.NewRecorder()
@@ -322,7 +321,7 @@ func TestBodyLimitMiddleware(t *testing.T) {
 
 		handler := BodyLimitMiddleware(1024)(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", strings.NewReader("hello"))
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader("hello"))
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
 
@@ -347,7 +346,7 @@ func TestBodyLimitMiddleware(t *testing.T) {
 
 		handler := BodyLimitMiddleware(5)(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", strings.NewReader("hello world"))
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader("hello world"))
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
 
@@ -372,7 +371,7 @@ func TestBodyLimitMiddleware(t *testing.T) {
 
 		handler := BodyLimitMiddleware(0)(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", http.NoBody)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", http.NoBody)
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
 
@@ -390,7 +389,7 @@ func TestBodyLimitMiddleware(t *testing.T) {
 
 		handler := BodyLimitMiddleware(1024)(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
 
@@ -614,7 +613,7 @@ func TestLoggingMiddleware(t *testing.T) {
 		handler := LoggingMiddleware(next)
 
 		body := `{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_documents","arguments":{"query":"test"}},"id":"1"}`
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", strings.NewReader(body))
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(body))
 		rr := httptest.NewRecorder()
 
 		handler.ServeHTTP(rr, req)
@@ -640,7 +639,7 @@ func TestLoggingMiddleware(t *testing.T) {
 		handler := LoggingMiddleware(next)
 
 		body := `{"jsonrpc":"2.0","method":"initialize","params":{},"id":"1"}`
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", strings.NewReader(body))
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(body))
 		rr := httptest.NewRecorder()
 
 		handler.ServeHTTP(rr, req)
@@ -659,7 +658,7 @@ func TestLoggingMiddleware(t *testing.T) {
 
 		handler := LoggingMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 		rr := httptest.NewRecorder()
 
 		handler.ServeHTTP(rr, req)
@@ -679,7 +678,7 @@ func TestLoggingMiddleware(t *testing.T) {
 
 		handler := LoggingMiddleware(next)
 
-		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", strings.NewReader("plain text body"))
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader("plain text body"))
 		rr := httptest.NewRecorder()
 
 		handler.ServeHTTP(rr, req)

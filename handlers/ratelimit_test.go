@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -83,7 +82,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 		})
 
 		for range 5 {
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.1:12345"
 			rr := httptest.NewRecorder()
 			handler(next).ServeHTTP(rr, req)
@@ -110,7 +109,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 
 		// Second request from same IP should be rate limited
 		{
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.1:12345"
 			rr := httptest.NewRecorder()
 			handler(next).ServeHTTP(rr, req)
@@ -119,7 +118,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 			}
 		}
 		{
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.1:12345"
 			rr := httptest.NewRecorder()
 			handler(next).ServeHTTP(rr, req)
@@ -145,7 +144,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 		})
 
 		for _, ip := range []string{"10.0.0.1:12345", "10.0.0.2:12345"} {
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 			req.RemoteAddr = ip
 			rr := httptest.NewRecorder()
 			handler(next).ServeHTTP(rr, req)
@@ -171,7 +170,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 		})
 
 		{
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.1:12345"
 			req.Header.Set("X-Client-Ip", "203.0.113.1")
 			req.Header.Set("X-Forwarded-For", "10.0.0.1")
@@ -183,7 +182,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 		}
 		// Second request with same X-Client-IP should be blocked (per-client limit=1)
 		{
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.2:12345"
 			req.Header.Set("X-Client-Ip", "203.0.113.1")
 			rr := httptest.NewRecorder()
@@ -194,7 +193,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 		}
 		// Request with different X-Client-IP should be allowed
 		{
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.3:12345"
 			req.Header.Set("X-Client-Ip", "203.0.113.2")
 			rr := httptest.NewRecorder()
@@ -221,7 +220,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 		})
 
 		{
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.1:12345"
 			req.Header.Set("X-Forwarded-For", "203.0.113.1")
 			rr := httptest.NewRecorder()
@@ -231,7 +230,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 			}
 		}
 		{
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.1:12345"
 			req.Header.Set("X-Forwarded-For", "203.0.113.1")
 			rr := httptest.NewRecorder()
@@ -259,7 +258,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 
 		// First request from any client is allowed
 		{
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.1:12345"
 			rr := httptest.NewRecorder()
 			handler(next).ServeHTTP(rr, req)
@@ -270,7 +269,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 
 		// Second request from different client is blocked by global rate
 		{
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.2:12345"
 			rr := httptest.NewRecorder()
 			handler(next).ServeHTTP(rr, req)
