@@ -83,21 +83,25 @@ func main() {
 	)
 
 	// Wrap with middlewares (outermost to innermost):
-	// rate limit → body limit → logging → token extraction → client injection → MCP handler.
-	// RateLimitMiddleware is outermost because it is the cheapest check (no body reading).
-	// BodyLimitMiddleware is second so that io.ReadAll in LoggingMiddleware
+	// recovery → rate limit → body limit → logging → token extraction → client injection → MCP handler.
+	// RecoveryMiddleware is outermost so that any panic anywhere in the chain
+	// is caught and the server stays alive.
+	// RateLimitMiddleware is second because it is the cheapest check (no body reading).
+	// BodyLimitMiddleware is third so that io.ReadAll in LoggingMiddleware
 	// is bounded by the 1 MB limit — a large malicious body is rejected before
 	// the logging middleware reads it into memory.
-	handler := handlers.RateLimitMiddleware(handlers.RateLimiterConfig{
-		GlobalLimit:    rate.Limit(rateLimitGlobal),
-		GlobalBurst:    rateLimitGlobal * 2,
-		PerClientLimit: rate.Limit(rateLimitPerClient),
-		PerClientBurst: rateLimitPerClient * 2,
-	})(
-		handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
-			handlers.LoggingMiddleware(
-				handlers.TokenMiddleware(
-					injectClientMiddleware(paperlessURL, sharedHTTPClient)(mcpHandler),
+	handler := handlers.RecoveryMiddleware(
+		handlers.RateLimitMiddleware(handlers.RateLimiterConfig{
+			GlobalLimit:    rate.Limit(rateLimitGlobal),
+			GlobalBurst:    rateLimitGlobal * 2,
+			PerClientLimit: rate.Limit(rateLimitPerClient),
+			PerClientBurst: rateLimitPerClient * 2,
+		})(
+			handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
+				handlers.LoggingMiddleware(
+					handlers.TokenMiddleware(
+						injectClientMiddleware(paperlessURL, sharedHTTPClient)(mcpHandler),
+					),
 				),
 			),
 		),

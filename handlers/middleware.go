@@ -138,6 +138,21 @@ func SanitizeLog(s string) string {
 	}, s)
 }
 
+// RecoveryMiddleware recovers from panics in downstream handlers, logs the
+// panic with a stack trace, and returns 500 Internal Server Error. Without
+// this middleware any panic in an HTTP goroutine would crash the entire server.
+func RecoveryMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Printf("ERROR panic recovered: %v", rec)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
 // LoggingMiddleware logs MCP request details at INFO level.
 // Records: timestamp, MCP method name, request duration, request body size,
 // and response body size.

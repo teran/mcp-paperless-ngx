@@ -732,6 +732,76 @@ func TestLoggingMiddleware(t *testing.T) {
 	})
 }
 
+// ============================================================
+// RecoveryMiddleware tests
+// ============================================================
+
+func TestRecoveryMiddleware(t *testing.T) {
+	t.Parallel()
+
+	t.Run("passes through normal request", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok"))
+		})
+
+		handler := RecoveryMiddleware(next)
+
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", rr.Code)
+		}
+		if rr.Body.String() != "ok" {
+			t.Errorf("expected body %q, got %q", "ok", rr.Body.String())
+		}
+	})
+
+	t.Run("recovers from panic", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			panic("test panic")
+		})
+
+		handler := RecoveryMiddleware(next)
+
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Errorf("expected status 500, got %d", rr.Code)
+		}
+		if rr.Body.String() != "Internal Server Error\n" {
+			t.Errorf("expected body %q, got %q", "Internal Server Error\n", rr.Body.String())
+		}
+	})
+
+	t.Run("recovers from nil panic", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var p *int
+			_ = *p // intentional nil dereference
+		})
+
+		handler := RecoveryMiddleware(next)
+
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Errorf("expected status 500, got %d", rr.Code)
+		}
+	})
+}
+
 func TestMaxBytesError(t *testing.T) {
 	t.Parallel()
 
