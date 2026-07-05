@@ -36,15 +36,16 @@ func checkBatchSize(body []byte) error {
 
 type paperlessClientKey struct{}
 
-// WithClient stores a value (typically *paperless.Client) in the context.
-func WithClient(ctx context.Context, client any) context.Context {
-	return context.WithValue(ctx, paperlessClientKey{}, client)
+// WithClient stores a token string in the context.
+func WithClient(ctx context.Context, token string) context.Context {
+	return context.WithValue(ctx, paperlessClientKey{}, token)
 }
 
-// ClientFromContext retrieves a value stored by WithClient.
-// Returns nil if not present.
-func ClientFromContext(ctx context.Context) any {
-	return ctx.Value(paperlessClientKey{})
+// ClientFromContext retrieves the token string stored by WithClient.
+// Returns empty string if not present.
+func ClientFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(paperlessClientKey{}).(string)
+	return v
 }
 
 // DefaultMaxRequestBodySize is the maximum allowed size for a request body (1 MB).

@@ -177,7 +177,7 @@ func main() {
 func injectClientMiddleware(paperlessURL string, sharedHTTPClient *http.Client) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			raw, _ := handlers.ClientFromContext(r.Context()).(string)
+			raw := handlers.ClientFromContext(r.Context())
 			if raw == "" {
 				http.Error(w, "Missing token in context", http.StatusUnauthorized)
 				return
