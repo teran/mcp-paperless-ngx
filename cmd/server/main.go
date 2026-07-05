@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -33,6 +34,14 @@ func main() {
 		log.Fatal("PAPERLESS_URL environment variable is required")
 	}
 	paperlessURL = strings.TrimRight(paperlessURL, "/")
+
+	if u, err := url.Parse(paperlessURL); err != nil {
+		log.Fatalf("PAPERLESS_URL is not a valid URL: %v", err)
+	} else if u.Scheme != "http" && u.Scheme != "https" {
+		log.Fatalf("PAPERLESS_URL must use http or https scheme (got %q)", u.Scheme)
+	} else if u.Host == "" {
+		log.Fatal("PAPERLESS_URL must include a host (e.g. http://paperless:8000)")
+	}
 
 	listenAddr := os.Getenv("LISTEN_ADDR")
 	if listenAddr == "" {
@@ -205,5 +214,3 @@ func parseDurationSeconds(val string, defaultVal int) time.Duration {
 	return time.Duration(n) * time.Second
 }
 
-// sanitizeLog is deprecated; use handlers.SanitizeLog instead.
-var sanitizeLog = handlers.SanitizeLog
