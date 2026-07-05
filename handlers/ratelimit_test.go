@@ -118,7 +118,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 		{
 			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.1:12345"
-			req.Header.Set("X-Client-IP", "203.0.113.1")
+			req.Header.Set("X-Client-Ip", "203.0.113.1")
 			req.Header.Set("X-Forwarded-For", "10.0.0.1")
 			rr := httptest.NewRecorder()
 			handler(next).ServeHTTP(rr, req)
@@ -130,7 +130,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 		{
 			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.2:12345"
-			req.Header.Set("X-Client-IP", "203.0.113.1")
+			req.Header.Set("X-Client-Ip", "203.0.113.1")
 			rr := httptest.NewRecorder()
 			handler(next).ServeHTTP(rr, req)
 			if rr.Code != http.StatusTooManyRequests {
@@ -141,7 +141,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 		{
 			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
 			req.RemoteAddr = "10.0.0.3:12345"
-			req.Header.Set("X-Client-IP", "203.0.113.2")
+			req.Header.Set("X-Client-Ip", "203.0.113.2")
 			rr := httptest.NewRecorder()
 			handler(next).ServeHTTP(rr, req)
 			if rr.Code != http.StatusOK {

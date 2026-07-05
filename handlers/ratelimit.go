@@ -94,7 +94,7 @@ func RateLimitMiddleware(cfg RateLimiterConfig) func(http.Handler) http.Handler 
 // 2. X-Forwarded-For — first (leftmost) IP in the chain from the proxy
 // 3. RemoteAddr — direct connection fallback (with port stripped)
 func extractClientIP(r *http.Request) string {
-	if clientIP := r.Header.Get("X-Client-IP"); clientIP != "" {
+	if clientIP := r.Header.Get("X-Client-Ip"); clientIP != "" {
 		host, _, err := net.SplitHostPort(clientIP)
 		if err == nil {
 			return host

@@ -306,6 +306,37 @@ docker buildx build --platform linux/amd64,linux/arm64 \
   -t ghcr.io/teran/mcp-paperless-ngx:latest --push .
 ```
 
+### Linting
+
+```bash
+golangci-lint run ./...
+```
+
+The linter configuration (`.golangci.yml`) enables `gosec` for security-relevant static analysis. All linters pass with zero issues.
+
+### Running tests
+
+```bash
+go test -count=1 ./...
+```
+
+### Test coverage
+
+```bash
+go test -coverprofile=coverage.out -count=1 ./...
+go tool cover -func=coverage.out
+```
+
+Current coverage by package:
+
+| Package                     | Coverage |
+|-----------------------------|----------|
+| `application`               | 100.0%   |
+| `cmd/server`                | 22.6%    |
+| `domain`                    | no stmts |
+| `handlers`                  | 84.5%    |
+| `infrastructure/paperless`  | 93.0%    |
+
 ### Adding a new tool
 
 1. Define input/output types in `handlers/tools.go`

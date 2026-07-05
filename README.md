@@ -209,11 +209,27 @@ When using `goreleaser`, binaries are placed in the `dist/` directory.
 golangci-lint run ./...
 ```
 
+The linter configuration enables `gosec` for security-relevant static analysis. All linters pass with zero issues.
+
 ### Running tests
 
 ```bash
 go test -count=1 ./...
 ```
+
+### Test coverage
+
+```bash
+go test -coverprofile=coverage.out -count=1 ./...
+go tool cover -func=coverage.out
+```
+
+| Package                     | Coverage |
+|-----------------------------|----------|
+| `application`               | 100.0%   |
+| `cmd/server`                | 22.6%    |
+| `handlers`                  | 84.5%    |
+| `infrastructure/paperless`  | 93.0%    |
 
 ### Adding a new tool
 
