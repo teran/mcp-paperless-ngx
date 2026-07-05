@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"golang.org/x/time/rate"
 
 	"github.com/teran/mcp-paperless-ngx/application"
 	"github.com/teran/mcp-paperless-ngx/handlers"
@@ -36,6 +38,9 @@ func main() {
 	if listenAddr == "" {
 		listenAddr = ":8080"
 	}
+
+	rateLimitGlobal := parseRateLimit(os.Getenv("RATE_LIMIT_GLOBAL"), 100)
+	rateLimitPerClient := parseRateLimit(os.Getenv("RATE_LIMIT_PER_CLIENT"), 10)
 
 	// sharedHTTPClient is reused across requests for connection pooling.
 	// CheckRedirect is set to http.ErrUseLastResponse to prevent credential
@@ -78,14 +83,21 @@ func main() {
 	)
 
 	// Wrap with middlewares (outermost to innermost):
-	// body limit → logging → token extraction → client injection → MCP handler.
-	// BodyLimitMiddleware is outermost so that io.ReadAll in LoggingMiddleware
+	// rate limit → body limit → logging → token extraction → client injection → MCP handler.
+	// RateLimitMiddleware is outermost because it is the cheapest check (no body reading).
+	// BodyLimitMiddleware is second so that io.ReadAll in LoggingMiddleware
 	// is bounded by the 1 MB limit — a large malicious body is rejected before
 	// the logging middleware reads it into memory.
-	handler := handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
-		handlers.LoggingMiddleware(
-			handlers.TokenMiddleware(
-				injectClientMiddleware(paperlessURL, sharedHTTPClient)(mcpHandler),
+	handler := handlers.RateLimitMiddleware(handlers.RateLimiterConfig{
+		GlobalLimit:    rate.Limit(rateLimitGlobal),
+		PerClientLimit: rate.Limit(rateLimitPerClient),
+		Burst:          2 * max(rateLimitGlobal, rateLimitPerClient),
+	})(
+		handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
+			handlers.LoggingMiddleware(
+				handlers.TokenMiddleware(
+					injectClientMiddleware(paperlessURL, sharedHTTPClient)(mcpHandler),
+				),
 			),
 		),
 	)
@@ -157,6 +169,19 @@ func injectClientMiddleware(paperlessURL string, sharedHTTPClient *http.Client) 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// parseRateLimit parses an integer rate limit from an environment variable.
+// Returns the default value if the env var is empty or invalid.
+func parseRateLimit(val string, defaultVal int) int {
+	if val == "" {
+		return defaultVal
+	}
+	n, err := strconv.Atoi(val)
+	if err != nil || n <= 0 {
+		return defaultVal
+	}
+	return n
 }
 
 // sanitizeLog removes newlines and truncates long strings.
