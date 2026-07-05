@@ -1,0 +1,20 @@
+name: gremlins
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  gremlins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+          cache: true
+      - uses: go-gremlins/gremlins-action@v1
+        with:
+          version: latest
+          args: handlers application infrastructure/paperless config
+          workdir: .
