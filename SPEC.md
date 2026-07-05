@@ -290,6 +290,7 @@ Authentication and authorization are handled entirely by the Paperless-ngx backe
 - Go 1.26+
 - golangci-lint (for linting)
 - goreleaser (highly recommended for building/releasing)
+- gremlins (for mutation testing, optional)
 
 ### Building
 
@@ -305,6 +306,14 @@ goreleaser build --snapshot --clean
 docker buildx build --platform linux/amd64,linux/arm64 \
   -t ghcr.io/teran/mcp-paperless-ngx:latest --push .
 ```
+
+### Quality gates (CI pipeline)
+
+Every commit on any branch is checked by three workflows:
+
+1. **golangci-lint** — static analysis with `gosec` enabled.
+2. **go test** — unit tests with coverage profile.
+3. **gremlins unleash** — mutation testing (informational, does not block).
 
 ### Linting
 
@@ -337,6 +346,20 @@ Current coverage by package:
 | `domain`                    | no stmts |
 | `handlers`                  | 92.3%    |
 | `infrastructure/paperless`  | 93.0%    |
+
+### Mutation testing (gremlins)
+
+[Mutation testing](https://en.wikipedia.org/wiki/Mutation_testing) evaluates test quality by introducing small changes (mutations) into the source code and checking whether the test suite catches them. The mutation testing workflow runs on every commit:
+
+```bash
+# Install gremlins (one-time)
+go install github.com/go-gremlins/gremlins/cmd/gremlins@latest
+
+# Run mutation testing on packages with high coverage
+gremlins unleash handlers application infrastructure/paperless config
+```
+
+Current mutation testing results are informational (not blocking) — the project has no KILLED mutants because all covered mutants result in TIMED OUT (condition negation changes test timing/retry behaviour). This is typical for projects with HTTP handler and network tests. Mutation coverage will improve as more edge-case tests are added.
 
 ### Adding a new tool
 

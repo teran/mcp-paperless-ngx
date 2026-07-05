@@ -202,6 +202,17 @@ When using `goreleaser`, binaries are placed in the `dist/` directory.
 - Go (version as declared in `go.mod`)
 - golangci-lint (for linting)
 - goreleaser (highly recommended for building/releasing)
+- gremlins (for mutation testing, optional)
+
+### CI Pipeline
+
+Every commit on any branch is checked by three quality gates:
+
+| Gate | Workflow | Status |
+|------|----------|--------|
+| 🔍 golangci-lint | `.github/workflows/ci.yml` | ✅ Blocks PR |
+| 🧪 go test | `.github/workflows/ci.yml` | ✅ Blocks PR |
+| 🧟 gremlins unleash | `.github/workflows/gremlins.yml` | ℹ️ Informational |
 
 ### Linting
 
@@ -232,6 +243,20 @@ go tool cover -func=coverage.out
 | `domain`                    | no stmts |
 | `handlers`                  | 92.3%    |
 | `infrastructure/paperless`  | 93.0%    |
+
+### Mutation testing (gremlins)
+
+Mutation testing evaluates test quality by introducing small changes into the source code and checking whether the test suite catches them.
+
+```bash
+# Install gremlins (one-time)
+go install github.com/go-gremlins/gremlins/cmd/gremlins@latest
+
+# Run mutation testing on packages with high coverage
+gremlins unleash handlers application infrastructure/paperless config
+```
+
+Current results are informational (continue-on-error) — no KILLED mutants, all TIMED OUT. This is typical for projects with HTTP handler and network tests.
 
 ### Adding a new tool
 

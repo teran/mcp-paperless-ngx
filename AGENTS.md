@@ -49,6 +49,18 @@ This document describes the agents/assistants involved in the development and op
 | `get_documents_by_tag`    | MCP Server                   | `GET /api/documents/?tags__id__all=`       |
 | `fulltext_search`         | MCP Server                   | `GET /api/documents/?query=`               |
 
+## CI Pipeline
+
+Every commit on any branch is checked by three workflows:
+
+1. **golangci-lint** — static analysis with `gosec` enabled.
+2. **go test** — unit tests with coverage profile (uploaded as artifact).
+3. **gremlins unleash** — mutation testing on packages with highest coverage (`handlers`, `application`, `infrastructure/paperless`, `config`). Runs as `continue-on-error` — informational only, does not block the PR.
+
+Workflow files:
+- `.github/workflows/ci.yml` — lint + test + coverage upload
+- `.github/workflows/gremlins.yml` — mutation testing
+
 ## Development Agents
 
 When building or modifying this server, the following specialized agents may be involved:
@@ -60,7 +72,7 @@ When building or modifying this server, the following specialized agents may be 
 | `qa`        | Writing tests, verifying correctness               |
 | `security`  | Reviewing auth flow, token handling, CVE scanning  |
 | `code-review` | Reviewing merge requests before deployment      |
-| `devops`    | CI/CD pipelines, Docker image, deployment          |
+| `devops`    | CI/CD pipelines, Docker image, deployment, mutation testing |
 
 ## Conflict Resolution
 
