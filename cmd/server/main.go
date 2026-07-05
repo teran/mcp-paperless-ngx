@@ -103,7 +103,7 @@ func main() {
 	)
 
 	//nolint:gosec // env vars are server-side config
-	log.Printf("Paperless-ngx URL: %s", sanitizeLog(paperlessURL))
+	log.Printf("Paperless-ngx URL: %s", handlers.SanitizeLog(paperlessURL))
 	log.Printf("Version: %s, commit: %s, built: %s", version, commit, date)
 
 	httpServer := &http.Server{ //nolint:exhaustruct
@@ -118,7 +118,7 @@ func main() {
 	// Channel to capture server errors.
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("Starting mcp-paperless-ngx server on %s", sanitizeLog(listenAddr))
+		log.Printf("Starting mcp-paperless-ngx server on %s", handlers.SanitizeLog(listenAddr))
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -184,12 +184,5 @@ func parseRateLimit(val string, defaultVal int) int {
 	return n
 }
 
-// sanitizeLog removes newlines and truncates long strings.
-func sanitizeLog(s string) string {
-	s = strings.ReplaceAll(s, "\n", "")
-	s = strings.ReplaceAll(s, "\r", "")
-	if len(s) > 500 {
-		s = s[:500] + "..."
-	}
-	return s
-}
+// sanitizeLog is deprecated; use handlers.SanitizeLog instead.
+var sanitizeLog = handlers.SanitizeLog

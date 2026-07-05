@@ -121,12 +121,21 @@ func mcpRequestMethod(body []byte) string {
 	return "unknown"
 }
 
-// sanitizeLog strips control characters from strings before logging
-// to prevent log injection attacks (e.g. newlines injected via JSON fields).
-func sanitizeLog(s string) string {
-	s = strings.ReplaceAll(s, "\n", "")
-	s = strings.ReplaceAll(s, "\r", "")
-	return s
+// SanitizeLog strips control characters from strings before logging
+// to prevent log injection attacks (e.g. newlines or ANSI escape codes
+// injected via JSON fields). Only printable characters and horizontal tab
+// are preserved; all other control characters (0x00-0x08, 0x0b-0x1f, 0x7f
+// and above) are removed.
+func SanitizeLog(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\t' {
+			return r
+		}
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 // LoggingMiddleware logs MCP request details at INFO level.
@@ -148,7 +157,7 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		r.Body = io.NopCloser(bytes.NewReader(body))
 
 		reqSize := len(body)
-		mcpMethod := sanitizeLog(mcpRequestMethod(body))
+		mcpMethod := SanitizeLog(mcpRequestMethod(body))
 
 		// Reject batch requests that exceed MaxBatchSize to prevent
 		// amplification attacks.

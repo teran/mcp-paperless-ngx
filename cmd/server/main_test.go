@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/teran/mcp-paperless-ngx/handlers"
@@ -31,7 +30,10 @@ func TestSanitizeLog(t *testing.T) {
 	}{
 		{name: "removes newlines", input: "hello\nworld", want: "helloworld"},
 		{name: "removes carriage returns", input: "hello\rworld", want: "helloworld"},
-		{name: "truncates long string", input: strings.Repeat("a", 600), want: strings.Repeat("a", 500) + "..."},
+		{name: "removes ANSI escape leading byte", input: "hello\x1b[2Jworld", want: "hello[2Jworld"},
+		{name: "removes null byte", input: "hello\x00world", want: "helloworld"},
+		{name: "preserves tab", input: "hello\tworld", want: "hello\tworld"},
+		{name: "removes bell", input: "hello\x07world", want: "helloworld"},
 		{name: "keeps short string", input: "hello", want: "hello"},
 		{name: "empty string", input: "", want: ""},
 	}
