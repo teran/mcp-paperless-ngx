@@ -42,10 +42,13 @@ The server follows a standard hexagonal (ports & adapters) architecture with a m
 
 ## Configuration (Environment Variables)
 
-| Variable           | Required | Default | Description                          |
-|--------------------|----------|---------|--------------------------------------|
-| `PAPERLESS_URL`    | Yes      | —       | Base URL of the Paperless-ngx instance (e.g. `http://paperless:8000`) |
-| `LISTEN_ADDR`      | No       | `:8080` | TCP address to listen on             |
+| Variable               | Required | Default | Description                          |
+|------------------------|----------|---------|--------------------------------------|
+| `PAPERLESS_URL`        | Yes      | —       | Base URL of the Paperless-ngx instance (e.g. `http://paperless:8000`) |
+| `LISTEN_ADDR`          | No       | `:8080` | TCP address to listen on             |
+| `RATE_LIMIT_GLOBAL`    | No       | `100`   | Global rate limit (requests/second)  |
+| `RATE_LIMIT_PER_CLIENT`| No       | `10`    | Per-client IP rate limit (requests/second) |
+| `WRITE_TIMEOUT`        | No       | `300`   | HTTP write timeout in seconds (0 disables) |
 
 The Paperless-ngx API token is **not** set via environment variables. It is supplied per-request in the `Authorization` header as `Bearer <token>` (the SDK also accepts `Token <token>` for Paperless-ngx compatibility).
 
@@ -187,29 +190,41 @@ Performs a full-text search across all documents.
 
 ## Middleware Chain
 
-The server applies four middleware layers to every HTTP request, executed in this order:
+The server applies five middleware layers to every HTTP request, executed in this order (outermost first). The first two layers are the cheapest checks and prevent resource exhaustion before any body parsing or token extraction occurs.
 
-### 1. BodyLimitMiddleware (`handlers/middleware.go`)
+### 1. RateLimitMiddleware (`handlers/ratelimit.go`)
 
-The outermost middleware. Limits the request body size to 1 MB using `http.MaxBytesReader`, preventing resource exhaustion from large requests. Placed outermost so that `LoggingMiddleware` (next in the chain) can safely call `io.ReadAll` on the body without unbounded memory consumption — a maliciously large payload is rejected by `MaxBytesReader` before the logging middleware reads it into memory.
+The outermost middleware. Implements two-tier token-bucket rate limiting using `golang.org/x/time/rate`:
+- **Global limit** (default 100 rps, configurable via `RATE_LIMIT_GLOBAL`) — prevents overall request flooding.
+- **Per-client limit** (default 10 rps, configurable via `RATE_LIMIT_PER_CLIENT`) — per-IP limiting using `RemoteAddr` or `X-Forwarded-For` header.
 
-### 2. LoggingMiddleware (`handlers/middleware.go`)
+Returns **429 Too Many Requests** when the limit is exceeded. Placed outermost because it is the cheapest check — no body reading or header parsing is required.
 
-Reads and buffers the request body to parse the JSON-RPC method name (and tool name for `tools/call` requests), then measures request duration and captures the HTTP status code and response body size via a wrapped `ResponseWriter`. Logs a single line at INFO level with the `mcp_log` prefix:
+### 2. BodyLimitMiddleware (`handlers/middleware.go`)
+
+Limits the request body size to 1 MB using `http.MaxBytesReader`, preventing resource exhaustion from large requests. Placed before `LoggingMiddleware` so that `io.ReadAll` in the logging layer is bounded — a maliciously large payload is rejected by `MaxBytesReader` before the logging middleware reads it into memory.
+
+### 3. LoggingMiddleware (`handlers/middleware.go`)
+
+Reads and buffers the request body to parse the JSON-RPC method name (and tool name for `tools/call` requests). Validates that batch JSON-RPC requests do not exceed `MaxBatchSize` (100), rejecting larger batches with **400 Bad Request** to prevent amplification attacks. Then measures request duration and captures the HTTP status code and response body size via a wrapped `ResponseWriter`. Logs a single line at INFO level with the `mcp_log` prefix:
 
 ```
 INFO mcp_log method=<name> duration=<Go duration> req_size=<bytes> resp_size=<bytes> status=<HTTP code>
 ```
 
-For `tools/call` requests, the `method` field reports the tool name (e.g. `search_documents`). The `Authorization` header (Bearer token) is **never** logged — only the MCP method name, timing, body sizes, and HTTP status code are recorded.
+For `tools/call` requests, the `method` field reports the tool name (e.g. `search_documents`). The `Authorization` header (Bearer token) is **never** logged — only the MCP method name, timing, body sizes, and HTTP status code are recorded. All log strings are sanitized via `handlers.SanitizeLog` to remove control characters (0x00-0x1f, 0x7f) that could be used for log injection.
 
-### 3. TokenMiddleware (`handlers/middleware.go`)
+### 4. TokenMiddleware (`handlers/middleware.go`)
 
-Extracts the Paperless-ngx API token from the `Authorization` header. Supports both `Bearer <token>` and `Token <token>` schemes (case-insensitive). The raw token string is stored in the request context. Returns **401 Unauthorized** if the header is missing or malformed.
+Extracts the Paperless-ngx API token from the `Authorization` header. Supports both `Bearer <token>` and `Token <token>` schemes (case-insensitive). The token length is validated against `MaxTokenLength` (512 bytes) to prevent DoS via oversized headers. The raw token string is stored in the request context. Returns **401 Unauthorized** if the header is missing, malformed, or exceeds the maximum length.
 
-### 4. injectClientMiddleware (`cmd/server/main.go`)
+### 5. injectClientMiddleware (`cmd/server/main.go`)
 
-Retrieves the token from the context (placed there by `TokenMiddleware`). Creates the Paperless-ngx API client and four application services (`DocumentService`, `CorrespondentService`, `DocumentTypeService`, `TagService`), then stores them in the request context for downstream tool handlers. Returns **401 Unauthorized** if the token is absent from context.
+Retrieves the token from the context (placed there by `TokenMiddleware`). Creates the Paperless-ngx API client using a shared `http.Client` with:
+- **CheckRedirect** set to `http.ErrUseLastResponse` — prevents credential forwarding via redirects.
+- **Shared Transport** with connection pooling (`MaxIdleConns=100`, `IdleConnTimeout=90s`).
+- **LimitReader** (100 MB) on responses to prevent memory exhaustion from oversized OCR text.
+Creates four application services (`DocumentService`, `CorrespondentService`, `DocumentTypeService`, `TagService`), then stores them in the request context for downstream tool handlers. Returns **401 Unauthorized** if the token is absent from context.
 
 No token verification is performed by this server — authentication and authorization are delegated entirely to the Paperless-ngx backend. The MCP server is a transparent proxy for the token.
 
@@ -217,13 +232,14 @@ No token verification is performed by this server — authentication and authori
 
 1. MCP Client sends a POST request to the Streamable HTTP endpoint.
 2. The `Authorization: Bearer <paperless-api-token>` header is included in the request.
-3. `BodyLimitMiddleware` enforces the 1 MB request body limit, preventing large payloads from reaching downstream layers.
-4. `LoggingMiddleware` reads and buffers the bounded body, records the MCP method name and request size, and starts the duration timer (without logging the token).
-5. `TokenMiddleware` extracts the token from the header and stores it in the request context.
-6. `injectClientMiddleware` creates a Paperless-ngx API client and builds application services, storing them in the context.
-7. Tool handlers retrieve services from context and call the Paperless-ngx API using the token.
-8. On response, `LoggingMiddleware` emits the INFO log line with duration, response size, and HTTP status.
-9. The token is never stored on the server — it exists only as long as the request is being processed.
+3. `RateLimitMiddleware` checks the request against global and per-client rate limits. Returns **429 Too Many Requests** if exceeded.
+4. `BodyLimitMiddleware` enforces the 1 MB request body limit, preventing large payloads from reaching downstream layers.
+5. `LoggingMiddleware` reads and buffers the bounded body, records the MCP method name and request size, validates batch size (max 100), and starts the duration timer (without logging the token).
+6. `TokenMiddleware` extracts the token from the header (validates length ≤ 512 bytes) and stores it in the request context.
+7. `injectClientMiddleware` creates a Paperless-ngx API client with a shared `http.Client` (connection pooling, redirect protection, response body limit), and builds application services, storing them in the context.
+8. Tool handlers retrieve services from context and call the Paperless-ngx API using the token.
+9. On response, `LoggingMiddleware` emits the INFO log line with duration, response size, and HTTP status.
+10. The token is never stored on the server — it exists only as long as the request is being processed.
 
 ## Error Handling
 
@@ -235,8 +251,11 @@ These errors are returned directly as HTTP status codes before the request reach
 
 | Status | Cause | Source |
 |--------|-------|--------|
+| **429 Too Many Requests** | Request frequency exceeds rate limit | `RateLimitMiddleware` |
 | **401 Unauthorized** | Missing or malformed `Authorization` header | `TokenMiddleware` |
+| **401 Unauthorized** | Token exceeds maximum length (512 bytes) | `TokenMiddleware` |
 | **401 Unauthorized** | Token not found in request context | `injectClientMiddleware` |
+| **400 Bad Request** | Batch JSON-RPC request exceeds maximum size (100) | `LoggingMiddleware` |
 
 ### MCP Level (Tool Handlers)
 
@@ -256,6 +275,12 @@ Authentication and authorization are handled entirely by the Paperless-ngx backe
 - The server does **not** store or cache tokens.
 - The server must be deployed behind TLS in production.
 - The `Authorization` header is read-only; it never appears in logs or error messages. The `LoggingMiddleware` explicitly avoids logging header content — only the MCP method name, timing, body sizes, and HTTP status code are recorded.
+- Token length is enforced at 512 bytes maximum in `TokenMiddleware` to prevent DoS via oversized headers.
+- HTTP redirects are disabled (`CheckRedirect: http.ErrUseLastResponse`) — the token cannot be forwarded to an external URL via a 302 response from Paperless-ngx.
+- Response bodies from Paperless-ngx are limited to 100 MB via `io.LimitReader` to prevent memory exhaustion from oversized OCR text.
+- Global (100 rps) and per-client (10 rps) rate limiting via `RateLimitMiddleware` — configurable via environment variables.
+- Batch JSON-RPC requests are limited to 100 items per batch to prevent amplification attacks.
+- All log strings are sanitized via `handlers.SanitizeLog` — control characters (0x00-0x1f, 0x7f) are stripped to prevent log injection.
 - No user management or session persistence is implemented — delegate to the MCP client layer.
 
 ## Development

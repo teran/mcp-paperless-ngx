@@ -108,10 +108,13 @@ Search documents, full-text search, list tags, find correspondents — all the o
 
 ## Configuration
 
-| Environment Variable | Required | Default | Description                              |
-|----------------------|----------|---------|------------------------------------------|
-| `PAPERLESS_URL`      | Yes      | —       | Base URL of your Paperless-ngx instance  |
-| `LISTEN_ADDR`        | No       | `:8080` | TCP address for the MCP server to listen |
+| Environment Variable     | Required | Default | Description                              |
+|--------------------------|----------|---------|------------------------------------------|
+| `PAPERLESS_URL`          | Yes      | —       | Base URL of your Paperless-ngx instance  |
+| `LISTEN_ADDR`            | No       | `:8080` | TCP address for the MCP server to listen |
+| `RATE_LIMIT_GLOBAL`      | No       | `100`   | Global rate limit (requests/second)      |
+| `RATE_LIMIT_PER_CLIENT`  | No       | `10`    | Per-client IP rate limit (requests/second) |
+| `WRITE_TIMEOUT`          | No       | `300`   | HTTP write timeout in seconds (0 disables) |
 
 The Paperless-ngx API token is supplied by the MCP client in the `Authorization` header:
 ```

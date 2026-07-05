@@ -27,7 +27,8 @@ This document describes the agents/assistants involved in the development and op
 | Package / File                              | Purpose                                         |
 |---------------------------------------------|-------------------------------------------------|
 | `cmd/server/main.go`                        | Entrypoint, HTTP server, middleware wiring      |
-| `handlers/middleware.go`                    | Token extraction, body limit, logging middleware |
+| `handlers/middleware.go`                    | Token extraction, body limit, logging, batch validation middleware |
+| `handlers/ratelimit.go`                     | Rate limiting middleware (global + per-client)  |
 | `handlers/tools.go`                         | MCP tool handler factories + I/O types          |
 | `handlers/registration.go`                  | Tool registration via `RegisterTools()`         |
 | `application/service.go`                    | Business logic / use case layer                 |
