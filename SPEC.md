@@ -209,10 +209,15 @@ Limits the request body size to 1 MB using `http.MaxBytesReader`, preventing res
 Reads and buffers the request body to parse the JSON-RPC method name (and tool name for `tools/call` requests). Validates that batch JSON-RPC requests do not exceed `MaxBatchSize` (100), rejecting larger batches with **400 Bad Request** to prevent amplification attacks. Then measures request duration and captures the HTTP status code and response body size via a wrapped `ResponseWriter`. Logs a single line at INFO level with the `mcp_log` prefix:
 
 ```
-INFO mcp_log method=<name> duration=<Go duration> req_size=<bytes> resp_size=<bytes> status=<HTTP code>
+INFO mcp_log http_method=<HTTP method> path=<request path> method=<name> duration=<Go duration> req_size=<bytes> resp_size=<bytes> status=<HTTP code>
 ```
 
-For `tools/call` requests, the `method` field reports the tool name (e.g. `search_documents`). The `Authorization` header (Bearer token) is **never** logged — only the MCP method name, timing, body sizes, and HTTP status code are recorded. All log strings are sanitized via `handlers.SanitizeLog` to remove control characters (0x00-0x1f, 0x7f) that could be used for log injection.
+For `tools/call` requests, the `method` field reports the tool name (e.g. `search_documents`). For requests where parsing fails, the `method` field reports one of:
+- `empty_body` — request body is nil or zero-length
+- `parse_error` — body is not valid JSON
+- `no_method` — body is valid JSON but the `method` field is empty or missing
+
+The `Authorization` header (Bearer token) is **never** logged — only the HTTP method, path, MCP method name, timing, body sizes, and HTTP status code are recorded. All log strings are sanitized via `handlers.SanitizeLog` to remove control characters (0x00-0x1f, 0x7f) that could be used for log injection.
 
 ### 4. TokenMiddleware (`handlers/middleware.go`)
 

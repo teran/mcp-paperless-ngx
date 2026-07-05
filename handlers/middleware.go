@@ -102,8 +102,15 @@ func (lrw *loggingResponseWriter) Write(b []byte) (int, error) {
 
 // mcpRequestMethod attempts to extract the MCP method name from a JSON-RPC
 // request body. For "tools/call" it additionally extracts the tool name from
-// params.name. Returns the extracted name or "unknown" if parsing fails.
+// params.name. Returns the extracted name or one of the following sentinel
+// values when parsing fails:
+//   - "empty_body"    — the body is nil or zero-length
+//   - "parse_error"   — the body is not valid JSON
+//   - "no_method"     — JSON is valid but the "method" field is empty or missing
 func mcpRequestMethod(body []byte) string {
+	if len(body) == 0 {
+		return "empty_body"
+	}
 	var req struct {
 		Method string `json:"method"`
 		Params struct {
@@ -111,7 +118,7 @@ func mcpRequestMethod(body []byte) string {
 		} `json:"params"`
 	}
 	if err := json.Unmarshal(body, &req); err != nil {
-		return "unknown"
+		return "parse_error"
 	}
 	if req.Method == "tools/call" && req.Params.Name != "" {
 		return req.Params.Name
@@ -119,7 +126,7 @@ func mcpRequestMethod(body []byte) string {
 	if req.Method != "" {
 		return req.Method
 	}
-	return "unknown"
+	return "no_method"
 }
 
 // SanitizeLog strips control characters from strings before logging
@@ -155,8 +162,8 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
 }
 
 // LoggingMiddleware logs MCP request details at INFO level.
-// Records: timestamp, MCP method name, request duration, request body size,
-// and response body size.
+// Records: timestamp, MCP method name, HTTP method, request path, request
+// duration, request body size, and response body size.
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -178,6 +185,8 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		// Reject batch requests that exceed MaxBatchSize to prevent
 		// amplification attacks.
 		if err := checkBatchSize(body); err != nil {
+			log.Printf("INFO mcp_log http_method=%s path=%s method=%s duration=%v req_size=%d resp_size=%d status=%d", //nolint:gosec
+				SanitizeLog(r.Method), SanitizeLog(r.URL.Path), mcpMethod, time.Since(start), reqSize, 0, http.StatusBadRequest)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -191,8 +200,8 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(lrw, r)
 
 		duration := time.Since(start)
-		log.Printf("INFO mcp_log method=%s duration=%v req_size=%d resp_size=%d status=%d",
-			mcpMethod, duration, reqSize, lrw.bodySize, lrw.statusCode)
+		log.Printf("INFO mcp_log http_method=%s path=%s method=%s duration=%v req_size=%d resp_size=%d status=%d", //nolint:gosec
+			SanitizeLog(r.Method), SanitizeLog(r.URL.Path), mcpMethod, duration, reqSize, lrw.bodySize, lrw.statusCode)
 	})
 }
 

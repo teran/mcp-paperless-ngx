@@ -503,21 +503,48 @@ func TestMCPRequestMethod(t *testing.T) {
 		}
 	})
 
-	t.Run("empty body returns unknown", func(t *testing.T) {
+	t.Run("empty body returns empty_body", func(t *testing.T) {
 		t.Parallel()
 
 		method := mcpRequestMethod([]byte{})
-		if method != "unknown" {
-			t.Errorf("expected 'unknown', got %q", method)
+		if method != "empty_body" {
+			t.Errorf("expected 'empty_body', got %q", method)
 		}
 	})
 
-	t.Run("invalid JSON returns unknown", func(t *testing.T) {
+	t.Run("nil body returns empty_body", func(t *testing.T) {
+		t.Parallel()
+
+		method := mcpRequestMethod(nil)
+		if method != "empty_body" {
+			t.Errorf("expected 'empty_body', got %q", method)
+		}
+	})
+
+	t.Run("invalid JSON returns parse_error", func(t *testing.T) {
 		t.Parallel()
 
 		method := mcpRequestMethod([]byte(`not json`))
-		if method != "unknown" {
-			t.Errorf("expected 'unknown', got %q", method)
+		if method != "parse_error" {
+			t.Errorf("expected 'parse_error', got %q", method)
+		}
+	})
+
+	t.Run("valid JSON with no method field returns no_method", func(t *testing.T) {
+		t.Parallel()
+
+		method := mcpRequestMethod([]byte(`{"foo":"bar"}`))
+		if method != "no_method" {
+			t.Errorf("expected 'no_method', got %q", method)
+		}
+	})
+
+	t.Run("valid JSON with empty method returns no_method", func(t *testing.T) {
+		t.Parallel()
+
+		method := mcpRequestMethod([]byte(`{"jsonrpc":"2.0","method":"","id":"1"}`))
+		if method != "no_method" {
+			t.Errorf("expected 'no_method', got %q", method)
 		}
 	})
 }
@@ -668,7 +695,7 @@ func TestLoggingMiddleware(t *testing.T) {
 		}
 	})
 
-	t.Run("logs unknown method for non-JSON body", func(t *testing.T) {
+	t.Run("logs parse_error for non-JSON body", func(t *testing.T) {
 		t.Parallel()
 
 		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -679,6 +706,26 @@ func TestLoggingMiddleware(t *testing.T) {
 		handler := LoggingMiddleware(next)
 
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader("plain text body"))
+		rr := httptest.NewRecorder()
+
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status 200, got %d", rr.Code)
+		}
+	})
+
+	t.Run("logs empty_body for request with no body", func(t *testing.T) {
+		t.Parallel()
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok"))
+		})
+
+		handler := LoggingMiddleware(next)
+
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", http.NoBody)
 		rr := httptest.NewRecorder()
 
 		handler.ServeHTTP(rr, req)
