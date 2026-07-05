@@ -332,9 +332,10 @@ Current coverage by package:
 | Package                     | Coverage |
 |-----------------------------|----------|
 | `application`               | 100.0%   |
-| `cmd/server`                | 22.6%    |
+| `cmd/server`                | 28.6%    |
+| `config`                    | 100.0%   |
 | `domain`                    | no stmts |
-| `handlers`                  | 84.5%    |
+| `handlers`                  | 92.3%    |
 | `infrastructure/paperless`  | 93.0%    |
 
 ### Adding a new tool

@@ -5,11 +5,8 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -17,6 +14,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/teran/mcp-paperless-ngx/application"
+	"github.com/teran/mcp-paperless-ngx/config"
 	"github.com/teran/mcp-paperless-ngx/handlers"
 	infra "github.com/teran/mcp-paperless-ngx/infrastructure/paperless"
 )
@@ -29,27 +27,10 @@ var (
 )
 
 func main() {
-	paperlessURL := os.Getenv("PAPERLESS_URL")
-	if paperlessURL == "" {
-		log.Fatal("PAPERLESS_URL environment variable is required")
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
-	paperlessURL = strings.TrimRight(paperlessURL, "/")
-
-	if u, err := url.Parse(paperlessURL); err != nil {
-		log.Fatalf("PAPERLESS_URL is not a valid URL: %v", err)
-	} else if u.Scheme != "http" && u.Scheme != "https" {
-		log.Fatalf("PAPERLESS_URL must use http or https scheme (got %q)", u.Scheme)
-	} else if u.Host == "" {
-		log.Fatal("PAPERLESS_URL must include a host (e.g. http://paperless:8000)")
-	}
-
-	listenAddr := os.Getenv("LISTEN_ADDR")
-	if listenAddr == "" {
-		listenAddr = ":8080"
-	}
-
-	rateLimitGlobal := parseRateLimit(os.Getenv("RATE_LIMIT_GLOBAL"), 100)
-	rateLimitPerClient := parseRateLimit(os.Getenv("RATE_LIMIT_PER_CLIENT"), 10)
 
 	// sharedHTTPClient is reused across requests for connection pooling.
 	// CheckRedirect is set to http.ErrUseLastResponse to prevent credential
@@ -101,22 +82,21 @@ func main() {
 	// the logging middleware reads it into memory.
 	handler := handlers.RecoveryMiddleware(
 		handlers.RateLimitMiddleware(handlers.RateLimiterConfig{
-			GlobalLimit:    rate.Limit(rateLimitGlobal),
-			GlobalBurst:    rateLimitGlobal * 2,
-			PerClientLimit: rate.Limit(rateLimitPerClient),
-			PerClientBurst: rateLimitPerClient * 2,
+			GlobalLimit:    rate.Limit(cfg.RateLimitGlobal),
+			GlobalBurst:    cfg.RateLimitGlobal * 2,
+			PerClientLimit: rate.Limit(cfg.RateLimitPerClient),
+			PerClientBurst: cfg.RateLimitPerClient * 2,
 		})(
 			handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
 				handlers.LoggingMiddleware(
 					handlers.TokenMiddleware(
-						injectClientMiddleware(paperlessURL, sharedHTTPClient)(mcpHandler),
+						injectClientMiddleware(cfg.PaperlessURL, sharedHTTPClient)(mcpHandler),
 					),
 				),
 			),
 		),
 	)
 
-	//nolint:gosec // env vars are server-side config
 	// Health-check endpoint — bypasses all middleware (auth, rate limit, etc.)
 	// so that load balancers and orchestrators always get a 200 when the server
 	// is alive, regardless of token state.
@@ -128,24 +108,22 @@ func main() {
 	})
 	mux.Handle("/", handler)
 
-	log.Printf("Paperless-ngx URL: %s", handlers.SanitizeLog(paperlessURL))
+	log.Printf("Paperless-ngx URL: %s", handlers.SanitizeLog(cfg.PaperlessURL))
 	log.Printf("Version: %s, commit: %s, built: %s", version, commit, date)
 
-	writeTimeout := parseDurationSeconds(os.Getenv("WRITE_TIMEOUT"), 300)
-
 	httpServer := &http.Server{ //nolint:exhaustruct
-		Addr:              listenAddr,
+		Addr:              cfg.ListenAddr,
 		Handler:           mux,
 		ReadHeaderTimeout: 30 * time.Second,
 		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      writeTimeout,
+		WriteTimeout:      cfg.WriteTimeout,
 		IdleTimeout:       120 * time.Second,
 	}
 
 	// Channel to capture server errors.
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("Starting mcp-paperless-ngx server on %s", handlers.SanitizeLog(listenAddr)) //nolint:gosec // sanitized above
+		log.Printf("Starting mcp-paperless-ngx server on %s", handlers.SanitizeLog(cfg.ListenAddr))
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -197,31 +175,3 @@ func injectClientMiddleware(paperlessURL string, sharedHTTPClient *http.Client) 
 		})
 	}
 }
-
-// parseRateLimit parses an integer rate limit from an environment variable.
-// Returns the default value if the env var is empty or invalid.
-func parseRateLimit(val string, defaultVal int) int {
-	if val == "" {
-		return defaultVal
-	}
-	n, err := strconv.Atoi(val)
-	if err != nil || n <= 0 {
-		return defaultVal
-	}
-	return n
-}
-
-// parseDurationSeconds parses an integer number of seconds from an
-// environment variable. Returns the default value if the env var is empty
-// or invalid. A value of 0 disables the timeout for streaming use cases.
-func parseDurationSeconds(val string, defaultVal int) time.Duration {
-	if val == "" {
-		return time.Duration(defaultVal) * time.Second
-	}
-	n, err := strconv.Atoi(val)
-	if err != nil || n < 0 {
-		return time.Duration(defaultVal) * time.Second
-	}
-	return time.Duration(n) * time.Second
-}
-
