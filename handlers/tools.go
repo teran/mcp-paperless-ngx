@@ -208,14 +208,21 @@ func toDocumentSummaries(docs []domain.Document, corrNames map[int]string, docTy
 	return result
 }
 
-// resolveCorrespondentNames fetches names for all unique correspondent IDs
-// present in the documents and returns a map of ID → name.
-// Uses errgroup for concurrent resolution to avoid N+1 sequential HTTP calls.
-func resolveCorrespondentNames(ctx context.Context, corrSvc *application.CorrespondentService, docs []domain.Document) map[int]string {
+// resolveNames is a generic helper that resolves entity names for a set of
+// unique IDs extracted from documents. Uses errgroup for concurrent resolution
+// to avoid N+1 sequential HTTP calls.
+func resolveNames[T any](
+	ctx context.Context,
+	docs []domain.Document,
+	logPrefix string,
+	getField func(domain.Document) *int,
+	getByID func(context.Context, int) (*T, error),
+	getName func(*T) string,
+) map[int]string {
 	ids := make(map[int]struct{})
 	for _, doc := range docs {
-		if doc.Correspondent != nil {
-			ids[*doc.Correspondent] = struct{}{}
+		if id := getField(doc); id != nil {
+			ids[*id] = struct{}{}
 		}
 	}
 	if len(ids) == 0 {
@@ -228,14 +235,14 @@ func resolveCorrespondentNames(ctx context.Context, corrSvc *application.Corresp
 	g, ctx := errgroup.WithContext(ctx)
 	for id := range ids {
 		g.Go(func() error {
-			corr, err := corrSvc.GetByID(ctx, id)
+			entity, err := getByID(ctx, id)
 			if err != nil {
-				log.Printf("resolve correspondent name: id=%d: %v", id, err)
+				log.Printf("resolve %s name: id=%d: %v", logPrefix, id, err)
 				return nil // best-effort: swallow error
 			}
-			if corr != nil {
+			if entity != nil {
 				mu.Lock()
-				names[id] = corr.Name
+				names[id] = getName(entity)
 				mu.Unlock()
 			}
 			return nil
@@ -246,42 +253,24 @@ func resolveCorrespondentNames(ctx context.Context, corrSvc *application.Corresp
 	return names
 }
 
+// resolveCorrespondentNames fetches names for all unique correspondent IDs
+// present in the documents and returns a map of ID → name.
+func resolveCorrespondentNames(ctx context.Context, corrSvc *application.CorrespondentService, docs []domain.Document) map[int]string {
+	return resolveNames(ctx, docs, "correspondent",
+		func(doc domain.Document) *int { return doc.Correspondent },
+		func(ctx context.Context, id int) (*domain.Correspondent, error) { return corrSvc.GetByID(ctx, id) },
+		func(c *domain.Correspondent) string { return c.Name },
+	)
+}
+
 // resolveDocumentTypeNames fetches names for all unique document type IDs
 // present in the documents and returns a map of ID → name.
-// Uses errgroup for concurrent resolution to avoid N+1 sequential HTTP calls.
 func resolveDocumentTypeNames(ctx context.Context, docTypeSvc *application.DocumentTypeService, docs []domain.Document) map[int]string {
-	ids := make(map[int]struct{})
-	for _, doc := range docs {
-		if doc.DocumentType != nil {
-			ids[*doc.DocumentType] = struct{}{}
-		}
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-
-	var mu sync.Mutex
-	names := make(map[int]string, len(ids))
-
-	g, ctx := errgroup.WithContext(ctx)
-	for id := range ids {
-		g.Go(func() error {
-			dt, err := docTypeSvc.GetByID(ctx, id)
-			if err != nil {
-				log.Printf("resolve document type name: id=%d: %v", id, err)
-				return nil // best-effort: swallow error
-			}
-			if dt != nil {
-				mu.Lock()
-				names[id] = dt.Name
-				mu.Unlock()
-			}
-			return nil
-		})
-	}
-	_ = g.Wait()
-
-	return names
+	return resolveNames(ctx, docs, "document type",
+		func(doc domain.Document) *int { return doc.DocumentType },
+		func(ctx context.Context, id int) (*domain.DocumentType, error) { return docTypeSvc.GetByID(ctx, id) },
+		func(dt *domain.DocumentType) string { return dt.Name },
+	)
 }
 
 // ============================================================
