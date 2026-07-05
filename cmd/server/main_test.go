@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/teran/mcp-paperless-ngx/handlers"
 )
@@ -17,36 +18,89 @@ var testHTTPClient = &http.Client{ //nolint:gochecknoglobals
 }
 
 // ---------------------------------------------------------------------------
-// sanitizeLog tests
+// parseRateLimit tests
 // ---------------------------------------------------------------------------
 
-func TestSanitizeLog(t *testing.T) {
+func TestParseRateLimit(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{name: "removes newlines", input: "hello\nworld", want: "helloworld"},
-		{name: "removes carriage returns", input: "hello\rworld", want: "helloworld"},
-		{name: "removes ANSI escape leading byte", input: "hello\x1b[2Jworld", want: "hello[2Jworld"},
-		{name: "removes null byte", input: "hello\x00world", want: "helloworld"},
-		{name: "preserves tab", input: "hello\tworld", want: "hello\tworld"},
-		{name: "removes bell", input: "hello\x07world", want: "helloworld"},
-		{name: "keeps short string", input: "hello", want: "hello"},
-		{name: "empty string", input: "", want: ""},
-	}
+	t.Run("valid value", func(t *testing.T) {
+		t.Parallel()
+		if got := parseRateLimit("50", 100); got != 50 {
+			t.Errorf("parseRateLimit(%q, 100) = %d, want 50", "50", got)
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			got := sanitizeLog(tt.input)
-			if got != tt.want {
-				t.Errorf("sanitizeLog(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
+	t.Run("empty string returns default", func(t *testing.T) {
+		t.Parallel()
+		if got := parseRateLimit("", 100); got != 100 {
+			t.Errorf("parseRateLimit(%q, 100) = %d, want 100", "", got)
+		}
+	})
+
+	t.Run("invalid string returns default", func(t *testing.T) {
+		t.Parallel()
+		if got := parseRateLimit("abc", 100); got != 100 {
+			t.Errorf("parseRateLimit(%q, 100) = %d, want 100", "abc", got)
+		}
+	})
+
+	t.Run("zero value returns default", func(t *testing.T) {
+		t.Parallel()
+		if got := parseRateLimit("0", 100); got != 100 {
+			t.Errorf("parseRateLimit(%q, 100) = %d, want 100", "0", got)
+		}
+	})
+
+	t.Run("negative value returns default", func(t *testing.T) {
+		t.Parallel()
+		if got := parseRateLimit("-5", 100); got != 100 {
+			t.Errorf("parseRateLimit(%q, 100) = %d, want 100", "-5", got)
+		}
+	})
+}
+
+// ---------------------------------------------------------------------------
+// parseDurationSeconds tests
+// ---------------------------------------------------------------------------
+
+func TestParseDurationSeconds(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid value", func(t *testing.T) {
+		t.Parallel()
+		if got := parseDurationSeconds("30", 300); got != 30*time.Second {
+			t.Errorf("parseDurationSeconds(%q, 300) = %v, want %v", "30", got, 30*time.Second)
+		}
+	})
+
+	t.Run("empty string returns default", func(t *testing.T) {
+		t.Parallel()
+		if got := parseDurationSeconds("", 300); got != 300*time.Second {
+			t.Errorf("parseDurationSeconds(%q, 300) = %v, want %v", "", got, 300*time.Second)
+		}
+	})
+
+	t.Run("invalid string returns default", func(t *testing.T) {
+		t.Parallel()
+		if got := parseDurationSeconds("abc", 300); got != 300*time.Second {
+			t.Errorf("parseDurationSeconds(%q, 300) = %v, want %v", "abc", got, 300*time.Second)
+		}
+	})
+
+	t.Run("zero value returns zero", func(t *testing.T) {
+		t.Parallel()
+		if got := parseDurationSeconds("0", 300); got != 0 {
+			t.Errorf("parseDurationSeconds(%q, 300) = %v, want 0", "0", got)
+		}
+	})
+
+	t.Run("negative value returns default", func(t *testing.T) {
+		t.Parallel()
+		if got := parseDurationSeconds("-1", 300); got != 300*time.Second {
+			t.Errorf("parseDurationSeconds(%q, 300) = %v, want %v", "-1", got, 300*time.Second)
+		}
+	})
 }
 
 // ---------------------------------------------------------------------------
