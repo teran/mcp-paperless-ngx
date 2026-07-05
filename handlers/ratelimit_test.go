@@ -5,9 +5,64 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"golang.org/x/time/rate"
 )
+
+func TestNewRateLimiterEviction(t *testing.T) {
+	t.Parallel()
+
+	cfg := RateLimiterConfig{
+		GlobalLimit:    rate.Limit(100),
+		GlobalBurst:    100,
+		PerClientLimit: rate.Limit(10),
+		PerClientBurst: 10,
+	}
+	rl := NewRateLimiter(cfg)
+	defer rl.Stop()
+
+	// Add some client entries.
+	rl.Allow("10.0.0.1")
+	rl.Allow("10.0.0.2")
+
+	rl.mu.Lock()
+	if len(rl.clients) != 2 {
+		t.Errorf("expected 2 clients before eviction, got %d", len(rl.clients))
+	}
+	// Simulate expired entries by backdating lastSeen.
+	rl.clients["10.0.0.1"].lastSeen = time.Now().Add(-clientTTL - time.Minute)
+	rl.clients["10.0.0.2"].lastSeen = time.Now().Add(-clientTTL - time.Minute)
+	rl.mu.Unlock()
+
+	// Run eviction.
+	rl.evictExpired()
+
+	rl.mu.Lock()
+	if len(rl.clients) != 0 {
+		t.Errorf("expected 0 clients after eviction, got %d", len(rl.clients))
+	}
+	rl.mu.Unlock()
+}
+
+func TestRateLimiter_Stop(t *testing.T) {
+	t.Parallel()
+
+	cfg := RateLimiterConfig{
+		GlobalLimit:    rate.Limit(100),
+		GlobalBurst:    100,
+		PerClientLimit: rate.Limit(10),
+		PerClientBurst: 10,
+	}
+	rl := NewRateLimiter(cfg)
+	rl.Stop() // should not panic or deadlock
+
+	// After Stop the limiter should still accept requests gracefully
+	// (eviction goroutine is stopped but Allow still works).
+	if !rl.Allow("10.0.0.1") {
+		t.Errorf("expected Allow to return true after Stop")
+	}
+}
 
 func TestRateLimitMiddleware(t *testing.T) {
 	t.Parallel()
