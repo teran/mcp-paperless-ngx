@@ -83,6 +83,12 @@ The build pipeline is engineered for production deployment in regulated environm
 | **Network isolation** | Single port (default `:8080`) — easily firewalled |
 | **Non-root user** | Default (`USER 65534:65534` in Dockerfile) — drops root at runtime |
 | **No secrets in image** | Token is runtime-only, passed via request headers |
+| **Rate limiting** | Two-tier token-bucket (global 100 rps + per-client 10 rps by default) — configurable via env vars |
+| **Log sanitization** | All log output stripped of control characters (0x00-0x1f, 0x7f) — prevents log injection |
+| **Batch protection** | JSON-RPC batches limited to 100 items — prevents amplification attacks |
+| **Token length limit** | Max 512 bytes per token — prevents DoS via oversized headers |
+| **Redirect protection** | Credential forwarding blocked — `CheckRedirect: http.ErrUseLastResponse` |
+| **Response body limit** | 100 MB max per response — prevents OOM via oversized OCR text |
 | **SBOM provenance** | Via goreleaser + Docker labels (`org.opencontainers.image.source`) |
 
 > **Recommendation:** in production, run with `docker run --read-only --cap-drop=ALL --user 65534 ...` for defence-in-depth.
@@ -120,6 +126,8 @@ The Paperless-ngx API token is supplied by the MCP client in the `Authorization`
 ```
 Authorization: Bearer <your-paperless-api-token>
 ```
+
+> **Behind a reverse proxy?** Ensure the proxy forwards the real client IP via `proxy_set_header X-Client-IP $remote_addr;` — the rate limiter uses this header (highest priority), then `X-Forwarded-For`, then `RemoteAddr`.
 
 ## MCP Tools
 

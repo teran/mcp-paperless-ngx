@@ -196,7 +196,7 @@ The server applies five middleware layers to every HTTP request, executed in thi
 
 The outermost middleware. Implements two-tier token-bucket rate limiting using `golang.org/x/time/rate`:
 - **Global limit** (default 100 rps, configurable via `RATE_LIMIT_GLOBAL`) — prevents overall request flooding.
-- **Per-client limit** (default 10 rps, configurable via `RATE_LIMIT_PER_CLIENT`) — per-IP limiting using `RemoteAddr` or `X-Forwarded-For` header.
+- **Per-client limit** (default 10 rps, configurable via `RATE_LIMIT_PER_CLIENT`) — per-IP limiting using `RemoteAddr` or proxy headers (`X-Client-IP` highest priority, then `X-Forwarded-For` first IP in chain).
 
 Returns **429 Too Many Requests** when the limit is exceeded. Placed outermost because it is the cheapest check — no body reading or header parsing is required.
 
