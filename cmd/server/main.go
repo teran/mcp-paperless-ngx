@@ -90,8 +90,9 @@ func main() {
 	// the logging middleware reads it into memory.
 	handler := handlers.RateLimitMiddleware(handlers.RateLimiterConfig{
 		GlobalLimit:    rate.Limit(rateLimitGlobal),
+		GlobalBurst:    rateLimitGlobal * 2,
 		PerClientLimit: rate.Limit(rateLimitPerClient),
-		Burst:          2 * max(rateLimitGlobal, rateLimitPerClient),
+		PerClientBurst: rateLimitPerClient * 2,
 	})(
 		handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
 			handlers.LoggingMiddleware(

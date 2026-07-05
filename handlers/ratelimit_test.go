@@ -17,8 +17,9 @@ func TestRateLimitMiddleware(t *testing.T) {
 
 		cfg := RateLimiterConfig{
 			GlobalLimit:    rate.Limit(100),
+			GlobalBurst:    100,
 			PerClientLimit: rate.Limit(10),
-			Burst:          10,
+			PerClientBurst: 10,
 		}
 		handler := RateLimitMiddleware(cfg)
 
@@ -42,8 +43,9 @@ func TestRateLimitMiddleware(t *testing.T) {
 
 		cfg := RateLimiterConfig{
 			GlobalLimit:    rate.Limit(100),
+			GlobalBurst:    100,
 			PerClientLimit: rate.Limit(1),
-			Burst:          1,
+			PerClientBurst: 1,
 		}
 		handler := RateLimitMiddleware(cfg)
 
@@ -77,8 +79,9 @@ func TestRateLimitMiddleware(t *testing.T) {
 
 		cfg := RateLimiterConfig{
 			GlobalLimit:    rate.Limit(100),
+			GlobalBurst:    100,
 			PerClientLimit: rate.Limit(1),
-			Burst:          2,
+			PerClientBurst: 1,
 		}
 		handler := RateLimitMiddleware(cfg)
 
@@ -97,13 +100,64 @@ func TestRateLimitMiddleware(t *testing.T) {
 		}
 	})
 
+	t.Run("respects X-Client-IP header over X-Forwarded-For", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := RateLimiterConfig{
+			GlobalLimit:    rate.Limit(100),
+			GlobalBurst:    100,
+			PerClientLimit: rate.Limit(1),
+			PerClientBurst: 1,
+		}
+		handler := RateLimitMiddleware(cfg)
+
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+
+		{
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req.RemoteAddr = "10.0.0.1:12345"
+			req.Header.Set("X-Client-IP", "203.0.113.1")
+			req.Header.Set("X-Forwarded-For", "10.0.0.1")
+			rr := httptest.NewRecorder()
+			handler(next).ServeHTTP(rr, req)
+			if rr.Code != http.StatusOK {
+				t.Errorf("first request: expected 200, got %d", rr.Code)
+			}
+		}
+		// Second request with same X-Client-IP should be blocked (per-client limit=1)
+		{
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req.RemoteAddr = "10.0.0.2:12345"
+			req.Header.Set("X-Client-IP", "203.0.113.1")
+			rr := httptest.NewRecorder()
+			handler(next).ServeHTTP(rr, req)
+			if rr.Code != http.StatusTooManyRequests {
+				t.Errorf("second request with same X-Client-IP: expected 429, got %d", rr.Code)
+			}
+		}
+		// Request with different X-Client-IP should be allowed
+		{
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil)
+			req.RemoteAddr = "10.0.0.3:12345"
+			req.Header.Set("X-Client-IP", "203.0.113.2")
+			rr := httptest.NewRecorder()
+			handler(next).ServeHTTP(rr, req)
+			if rr.Code != http.StatusOK {
+				t.Errorf("request from different X-Client-IP: expected 200, got %d", rr.Code)
+			}
+		}
+	})
+
 	t.Run("respects X-Forwarded-For header", func(t *testing.T) {
 		t.Parallel()
 
 		cfg := RateLimiterConfig{
 			GlobalLimit:    rate.Limit(100),
+			GlobalBurst:    100,
 			PerClientLimit: rate.Limit(1),
-			Burst:          1,
+			PerClientBurst: 1,
 		}
 		handler := RateLimitMiddleware(cfg)
 
@@ -138,8 +192,9 @@ func TestRateLimitMiddleware(t *testing.T) {
 
 		cfg := RateLimiterConfig{
 			GlobalLimit:    rate.Limit(1),
+			GlobalBurst:    1,
 			PerClientLimit: rate.Limit(10),
-			Burst:          1,
+			PerClientBurst: 10,
 		}
 		handler := RateLimitMiddleware(cfg)
 

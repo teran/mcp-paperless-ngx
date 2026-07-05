@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 
 	"golang.org/x/time/rate"
@@ -11,11 +12,14 @@ import (
 
 // RateLimiterConfig holds configuration for the rate limiting middleware.
 // GlobalLimit is the maximum number of requests per second across all clients.
+// GlobalBurst is the initial burst capacity for the global limiter.
 // PerClientLimit is the maximum number of requests per second per client IP.
+// PerClientBurst is the initial burst capacity for each per-client limiter.
 type RateLimiterConfig struct {
 	GlobalLimit    rate.Limit
+	GlobalBurst    int
 	PerClientLimit rate.Limit
-	Burst          int
+	PerClientBurst int
 }
 
 // rateLimiter implements token-bucket rate limiting with a global limiter
@@ -29,9 +33,13 @@ type rateLimiter struct {
 
 // NewRateLimiter creates a new rate limiter with the given configuration.
 func NewRateLimiter(config RateLimiterConfig) *rateLimiter {
+	burst := config.GlobalBurst
+	if burst <= 0 {
+		burst = int(config.GlobalLimit) * 2 // default: 2x the rate
+	}
 	return &rateLimiter{
 		config:  config,
-		global:  rate.NewLimiter(config.GlobalLimit, config.Burst),
+		global:  rate.NewLimiter(config.GlobalLimit, burst),
 		clients: make(map[string]*rate.Limiter),
 	}
 }
@@ -46,7 +54,11 @@ func (rl *rateLimiter) Allow(clientIP string) bool {
 	rl.mu.Lock()
 	limiter, exists := rl.clients[clientIP]
 	if !exists {
-		limiter = rate.NewLimiter(rl.config.PerClientLimit, rl.config.Burst)
+		perBurst := rl.config.PerClientBurst
+		if perBurst <= 0 {
+			perBurst = int(rl.config.PerClientLimit) * 2 // default: 2x the rate
+		}
+		limiter = rate.NewLimiter(rl.config.PerClientLimit, perBurst)
 		rl.clients[clientIP] = limiter
 	}
 	rl.mu.Unlock()
@@ -73,10 +85,29 @@ func RateLimitMiddleware(cfg RateLimiterConfig) func(http.Handler) http.Handler 
 	}
 }
 
-// extractClientIP extracts the client IP address from the request, preferring
-// the X-Forwarded-For header when behind a reverse proxy.
+// extractClientIP extracts the client IP address from the request, checking
+// proxy headers in order of specificity. When behind a reverse proxy (nginx,
+// HAProxy, etc.), the proxy should set X-Client-IP or X-Forwarded-For headers.
+//
+// Header precedence (highest first):
+// 1. X-Client-IP — explicitly set by reverse proxy configuration
+// 2. X-Forwarded-For — first (leftmost) IP in the chain from the proxy
+// 3. RemoteAddr — direct connection fallback (with port stripped)
 func extractClientIP(r *http.Request) string {
+	if clientIP := r.Header.Get("X-Client-IP"); clientIP != "" {
+		host, _, err := net.SplitHostPort(clientIP)
+		if err == nil {
+			return host
+		}
+		return clientIP
+	}
+
 	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+		// X-Forwarded-For format: "client, proxy1, proxy2"
+		// Take the first (leftmost) IP as the real client.
+		if idx := strings.IndexByte(fwd, ','); idx >= 0 {
+			fwd = strings.TrimSpace(fwd[:idx])
+		}
 		host, _, err := net.SplitHostPort(fwd)
 		if err == nil {
 			return host
