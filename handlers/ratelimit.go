@@ -21,10 +21,10 @@ type RateLimiterConfig struct {
 // rateLimiter implements token-bucket rate limiting with a global limiter
 // and per-client limiters tracked by IP address.
 type rateLimiter struct {
-	config    RateLimiterConfig
-	global    *rate.Limiter
-	clients   map[string]*rate.Limiter
-	mu        sync.Mutex
+	config  RateLimiterConfig
+	global  *rate.Limiter
+	clients map[string]*rate.Limiter
+	mu      sync.Mutex
 }
 
 // NewRateLimiter creates a new rate limiter with the given configuration.
@@ -64,7 +64,7 @@ func RateLimitMiddleware(cfg RateLimiterConfig) func(http.Handler) http.Handler 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientIP := extractClientIP(r)
 			if !rl.Allow(clientIP) {
-				log.Printf("WARN rate_limit exceeded client_ip=%s method=%s", clientIP, r.Method)
+				log.Printf("WARN rate_limit exceeded client_ip=%s method=%s", clientIP, r.Method) //nolint:gosec // clientIP and method are safe values
 				http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
 				return
 			}

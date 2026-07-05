@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,maintidx
+func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,gocyclo,maintidx
 	t.Parallel()
 
 	t.Run("Bearer token passes through", func(t *testing.T) {

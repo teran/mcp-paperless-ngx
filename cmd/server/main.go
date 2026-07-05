@@ -52,10 +52,10 @@ func main() {
 			return http.ErrUseLastResponse
 		},
 		Transport: &http.Transport{ //nolint:exhaustruct
-			MaxIdleConns:        100,
-			IdleConnTimeout:     90 * time.Second,
-			DisableCompression:  false,
-			DisableKeepAlives:   false,
+			MaxIdleConns:       100,
+			IdleConnTimeout:    90 * time.Second,
+			DisableCompression: false,
+			DisableKeepAlives:  false,
 		},
 	}
 
@@ -120,7 +120,7 @@ func main() {
 	// Channel to capture server errors.
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("Starting mcp-paperless-ngx server on %s", handlers.SanitizeLog(listenAddr))
+		log.Printf("Starting mcp-paperless-ngx server on %s", handlers.SanitizeLog(listenAddr)) //nolint:gosec // sanitized above
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}

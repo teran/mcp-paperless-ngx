@@ -25,6 +25,7 @@ linters:
     - godox
     - gomoddirectives
     - goprintffuncname
+    - gosec
     - govet
     - grouper
     - iface

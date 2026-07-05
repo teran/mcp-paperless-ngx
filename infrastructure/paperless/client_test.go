@@ -1967,7 +1967,7 @@ func TestClient_Search_Status300_Rejected(t *testing.T) {
 
 	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMultipleChoices)        // 300
-		w.Write([]byte(`{"detail":"multiple choices"}`)) //nolint:errcheck
+		w.Write([]byte(`{"detail":"multiple choices"}`)) //nolint:errcheck,gosec
 	})
 	defer srv.Close()
 
