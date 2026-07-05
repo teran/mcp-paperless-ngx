@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -11,6 +12,16 @@ import (
 
 	"github.com/teran/mcp-paperless-ngx/application"
 	"github.com/teran/mcp-paperless-ngx/domain"
+)
+
+// Sentinel errors returned to the MCP client with user-friendly messages.
+// Detailed internal errors are logged server-side via log.Printf.
+var (
+	ErrSearchFailed            = errors.New("search failed")
+	ErrDocumentNotFound        = errors.New("document not found")
+	ErrCorrespondentNotFound   = errors.New("correspondent not found")
+	ErrListTagsFailed           = errors.New("list tags failed")
+	ErrInternalError           = errors.New("internal error")
 )
 
 // ============================================================
@@ -292,7 +303,8 @@ func NewSearchDocumentsHandler(svc *application.DocumentService, corrSvc *applic
 			PageSize:        pageSize,
 		})
 		if err != nil {
-			return nil, SearchDocumentsOutput{}, fmt.Errorf("search documents: %w", err)
+			log.Printf("ERROR search_documents: %v", err)
+			return nil, SearchDocumentsOutput{}, fmt.Errorf("search_documents: %w", ErrSearchFailed)
 		}
 
 		corrNames := resolveCorrespondentNames(ctx, corrSvc, result.Results)
@@ -311,7 +323,8 @@ func NewGetDocumentContentHandler(svc *application.DocumentService, corrSvc *app
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input GetDocumentContentInput) (*mcp.CallToolResult, DocumentDetail, error) {
 		doc, err := svc.GetByID(ctx, input.DocumentID)
 		if err != nil {
-			return nil, DocumentDetail{}, fmt.Errorf("get document content: %w", err)
+			log.Printf("ERROR get_document_content: %v", err)
+			return nil, DocumentDetail{}, fmt.Errorf("get_document_content: %w", ErrDocumentNotFound)
 		}
 
 		corrName := ""
@@ -355,7 +368,8 @@ func NewSearchCorrespondentsHandler(svc *application.CorrespondentService) mcp.T
 
 		result, err := svc.Search(ctx, input.Query, page, pageSize)
 		if err != nil {
-			return nil, SearchCorrespondentsOutput{}, fmt.Errorf("search correspondents: %w", err)
+			log.Printf("ERROR search_correspondents: %v", err)
+			return nil, SearchCorrespondentsOutput{}, fmt.Errorf("search_correspondents: %w", ErrCorrespondentNotFound)
 		}
 
 		items := make([]CorrespondentSummary, 0, len(result.Results))
@@ -383,7 +397,8 @@ func NewGetDocumentsByCorrespondentHandler(svc *application.DocumentService, cor
 
 		result, err := svc.GetByCorrespondent(ctx, input.CorrespondentID, page, pageSize)
 		if err != nil {
-			return nil, SearchDocumentsOutput{}, fmt.Errorf("get documents by correspondent: %w", err)
+			log.Printf("ERROR get_documents_by_correspondent: %v", err)
+			return nil, SearchDocumentsOutput{}, fmt.Errorf("get_documents_by_correspondent: %w", ErrSearchFailed)
 		}
 
 		corrNames := resolveCorrespondentNames(ctx, corrSvc, result.Results)
@@ -404,7 +419,8 @@ func NewListTagsHandler(svc *application.TagService) mcp.ToolHandlerFor[ListTags
 
 		result, err := svc.List(ctx, input.Query, page, pageSize)
 		if err != nil {
-			return nil, ListTagsOutput{}, fmt.Errorf("list tags: %w", err)
+			log.Printf("ERROR list_tags: %v", err)
+			return nil, ListTagsOutput{}, fmt.Errorf("list_tags: %w", ErrListTagsFailed)
 		}
 
 		items := make([]TagSummary, 0, len(result.Results))
@@ -433,7 +449,8 @@ func NewGetDocumentsByTagHandler(svc *application.DocumentService, corrSvc *appl
 
 		result, err := svc.GetByTag(ctx, input.TagID, page, pageSize)
 		if err != nil {
-			return nil, SearchDocumentsOutput{}, fmt.Errorf("get documents by tag: %w", err)
+			log.Printf("ERROR get_documents_by_tag: %v", err)
+			return nil, SearchDocumentsOutput{}, fmt.Errorf("get_documents_by_tag: %w", ErrSearchFailed)
 		}
 
 		corrNames := resolveCorrespondentNames(ctx, corrSvc, result.Results)
@@ -454,7 +471,8 @@ func NewFulltextSearchHandler(svc *application.DocumentService, corrSvc *applica
 
 		result, err := svc.FulltextSearch(ctx, input.Query, page, pageSize)
 		if err != nil {
-			return nil, FulltextSearchOutput{}, fmt.Errorf("fulltext search: %w", err)
+			log.Printf("ERROR fulltext_search: %v", err)
+			return nil, FulltextSearchOutput{}, fmt.Errorf("fulltext_search: %w", ErrSearchFailed)
 		}
 
 		corrNames := resolveCorrespondentNames(ctx, corrSvc, result.Results)

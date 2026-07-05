@@ -434,8 +434,8 @@ func TestNewSearchDocumentsHandler(t *testing.T) { //nolint:gocognit,gocyclo,mai
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !errors.Is(err, errMock) {
-			t.Errorf("expected wrapping of %v, got %v", errMock, err)
+		if !errors.Is(err, ErrSearchFailed) {
+			t.Errorf("expected %v, got %v", ErrSearchFailed, err)
 		}
 	})
 
@@ -577,8 +577,8 @@ func TestNewGetDocumentContentHandler(t *testing.T) { //nolint:gocognit,gocyclo
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if err.Error() != "get document content: get document: document not found" {
-			t.Errorf("unexpected error message: %q", err.Error())
+		if !errors.Is(err, ErrDocumentNotFound) {
+			t.Errorf("expected %v, got %v", ErrDocumentNotFound, err)
 		}
 	})
 
@@ -596,8 +596,8 @@ func TestNewGetDocumentContentHandler(t *testing.T) { //nolint:gocognit,gocyclo
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !errors.Is(err, errMock) {
-			t.Errorf("expected wrapping of %v, got %v", errMock, err)
+		if !errors.Is(err, ErrDocumentNotFound) {
+			t.Errorf("expected %v, got %v", ErrDocumentNotFound, err)
 		}
 	})
 
@@ -825,8 +825,8 @@ func TestNewSearchCorrespondentsHandler(t *testing.T) { //nolint:gocognit
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !errors.Is(err, errMock) {
-			t.Errorf("expected wrapping of %v, got %v", errMock, err)
+		if !errors.Is(err, ErrCorrespondentNotFound) {
+			t.Errorf("expected %v, got %v", ErrCorrespondentNotFound, err)
 		}
 	})
 }
@@ -932,8 +932,8 @@ func TestNewGetDocumentsByCorrespondentHandler(t *testing.T) { //nolint:gocognit
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !errors.Is(err, errMock) {
-			t.Errorf("expected wrapping of %v, got %v", errMock, err)
+		if !errors.Is(err, ErrSearchFailed) {
+			t.Errorf("expected %v, got %v", ErrSearchFailed, err)
 		}
 	})
 
@@ -1123,8 +1123,8 @@ func TestNewListTagsHandler(t *testing.T) { //nolint:gocognit
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !errors.Is(err, errMock) {
-			t.Errorf("expected wrapping of %v, got %v", errMock, err)
+		if !errors.Is(err, ErrListTagsFailed) {
+			t.Errorf("expected %v, got %v", ErrListTagsFailed, err)
 		}
 	})
 }
@@ -1228,8 +1228,8 @@ func TestNewGetDocumentsByTagHandler(t *testing.T) { //nolint:gocognit
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !errors.Is(err, errMock) {
-			t.Errorf("expected wrapping of %v, got %v", errMock, err)
+		if !errors.Is(err, ErrSearchFailed) {
+			t.Errorf("expected %v, got %v", ErrSearchFailed, err)
 		}
 	})
 
@@ -1448,8 +1448,8 @@ func TestNewFulltextSearchHandler(t *testing.T) { //nolint:gocognit,gocyclo,main
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}
-		if !errors.Is(err, errMock) {
-			t.Errorf("expected wrapping of %v, got %v", errMock, err)
+		if !errors.Is(err, ErrSearchFailed) {
+			t.Errorf("expected %v, got %v", ErrSearchFailed, err)
 		}
 	})
 
