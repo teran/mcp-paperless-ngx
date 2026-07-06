@@ -12,6 +12,7 @@ func TestLoad(t *testing.T) {
 	t.Run("all env vars set correctly", func(t *testing.T) {
 		t.Setenv("PAPERLESS_URL", "http://paperless:8000")
 		t.Setenv("LISTEN_ADDR", ":9090")
+		t.Setenv("PROMETHEUS_METRICS_ADDR", ":9091")
 		t.Setenv("RATE_LIMIT_GLOBAL", "200")
 		t.Setenv("RATE_LIMIT_PER_CLIENT", "50")
 		t.Setenv("WRITE_TIMEOUT", "600s")
@@ -26,6 +27,9 @@ func TestLoad(t *testing.T) {
 		}
 		if cfg.ListenAddr != ":9090" {
 			t.Errorf("ListenAddr = %q, want %q", cfg.ListenAddr, ":9090")
+		}
+		if cfg.PrometheusMetricsAddr != ":9091" {
+			t.Errorf("PrometheusMetricsAddr = %q, want %q", cfg.PrometheusMetricsAddr, ":9091")
 		}
 		if cfg.RateLimitGlobal != 200 {
 			t.Errorf("RateLimitGlobal = %d, want 200", cfg.RateLimitGlobal)
@@ -48,6 +52,9 @@ func TestLoad(t *testing.T) {
 
 		if cfg.ListenAddr != ":8080" {
 			t.Errorf("ListenAddr = %q, want %q", cfg.ListenAddr, ":8080")
+		}
+		if cfg.PrometheusMetricsAddr != ":8081" {
+			t.Errorf("PrometheusMetricsAddr = %q, want %q", cfg.PrometheusMetricsAddr, ":8081")
 		}
 		if cfg.RateLimitGlobal != 100 {
 			t.Errorf("RateLimitGlobal = %d, want 100", cfg.RateLimitGlobal)

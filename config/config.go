@@ -13,11 +13,12 @@ import (
 
 // Config represents the application configuration loaded from environment variables.
 type Config struct {
-	PaperlessURL       string        `envconfig:"PAPERLESS_URL" required:"true"`
-	ListenAddr         string        `envconfig:"LISTEN_ADDR" default:":8080"`
-	RateLimitGlobal    int           `envconfig:"RATE_LIMIT_GLOBAL" default:"100"`
-	RateLimitPerClient int           `envconfig:"RATE_LIMIT_PER_CLIENT" default:"10"`
-	WriteTimeout       time.Duration `envconfig:"WRITE_TIMEOUT" default:"300s"`
+	PaperlessURL          string        `envconfig:"PAPERLESS_URL" required:"true"`
+	ListenAddr            string        `envconfig:"LISTEN_ADDR" default:":8080"`
+	PrometheusMetricsAddr string        `envconfig:"PROMETHEUS_METRICS_ADDR" default:":8081"`
+	RateLimitGlobal       int           `envconfig:"RATE_LIMIT_GLOBAL" default:"100"`
+	RateLimitPerClient    int           `envconfig:"RATE_LIMIT_PER_CLIENT" default:"10"`
+	WriteTimeout          time.Duration `envconfig:"WRITE_TIMEOUT" default:"300s"`
 }
 
 // validate performs semantic validation on the loaded configuration.
