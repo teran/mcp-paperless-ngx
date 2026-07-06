@@ -30,6 +30,7 @@ This document describes the agents/assistants involved in the development and op
 | `config/config.go`                          | Configuration loading (`envconfig` + ozzo-validation) |
 | `handlers/middleware.go`                    | Token extraction, body limit, logging, batch validation middleware |
 | `handlers/ratelimit.go`                     | Rate limiting middleware (global + per-client)  |
+| `handlers/metrics.go`                       | Prometheus metrics collectors + middleware + `WrapToolHandler` |
 | `handlers/tools.go`                         | MCP tool handler factories + I/O types          |
 | `handlers/registration.go`                  | Tool registration via `RegisterTools()`         |
 | `application/service.go`                    | Business logic / use case layer                 |
@@ -48,6 +49,17 @@ This document describes the agents/assistants involved in the development and op
 | `list_tags`               | MCP Server                   | `GET /api/tags/`                           |
 | `get_documents_by_tag`    | MCP Server                   | `GET /api/documents/?tags__id__all=`       |
 | `fulltext_search`         | MCP Server                   | `GET /api/documents/?query=`               |
+
+## Metrics
+
+The server exposes Prometheus metrics on a separate HTTP server (default port `:8081`, configurable via `PROMETHEUS_METRICS_ADDR`):
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `mcp_tool_requests_total` | Counter | `{tool, status_class}` | Per-tool request count (tool names are hardcoded at registration) |
+| `mcp_tool_duration_seconds` | Histogram | `{tool}` | Per-tool request duration (DefBuckets: .005–10s) |
+| `mcp_active_requests` | Gauge | — | Current in-flight MCP requests |
+| `go_*` (goroutines, memstats, GC, etc.) | Various | — | Go runtime metrics via `collectors.NewGoCollector()` |
 
 ## CI Pipeline
 

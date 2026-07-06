@@ -80,7 +80,7 @@ The build pipeline is engineered for production deployment in regulated environm
 | **Multi-arch** | linux/amd64 + linux/arm64 |
 | **Read-only root filesystem** | Supported (container flag `--read-only`) — the server writes nothing to disk |
 | **Drop all capabilities** | Supported (container flag `--cap-drop=ALL`) |
-| **Network isolation** | Single port (default `:8080`) — easily firewalled |
+| **Network isolation** | Two ports (MCP `:8080` + metrics `:8081`) — metrics endpoint must be firewalled or bound to loopback |
 | **Non-root user** | Default (`USER 65534:65534` in Dockerfile) — drops root at runtime |
 | **No secrets in image** | Token is runtime-only, passed via request headers |
 | **Rate limiting** | Two-tier token-bucket (global 100 rps + per-client 10 rps by default) — configurable via env vars |
@@ -90,6 +90,7 @@ The build pipeline is engineered for production deployment in regulated environm
 | **Redirect protection** | Credential forwarding blocked — `CheckRedirect: http.ErrUseLastResponse` |
 | **Response body limit** | 100 MB max per response — prevents OOM via oversized OCR text |
 | **SBOM provenance** | Via goreleaser + Docker labels (`org.opencontainers.image.source`) |
+| **Prometheus metrics** | Separate HTTP server on port 8081 (configurable). Go runtime + per-tool metrics with hardcoded tool name labels — no cardinality injection. No auth on metrics endpoint (must be firewalled) |
 
 > **Recommendation:** in production, run with `docker run --read-only --cap-drop=ALL --user 65534 ...` for defence-in-depth.
 
@@ -114,13 +115,14 @@ Search documents, full-text search, list tags, find correspondents — all the o
 
 ## Configuration
 
-| Environment Variable     | Required | Default | Description                              |
-|--------------------------|----------|---------|------------------------------------------|
-| `PAPERLESS_URL`          | Yes      | —       | Base URL of your Paperless-ngx instance  |
-| `LISTEN_ADDR`            | No       | `:8080` | TCP address for the MCP server to listen |
-| `RATE_LIMIT_GLOBAL`      | No       | `100`   | Global rate limit (requests/second)      |
-| `RATE_LIMIT_PER_CLIENT`  | No       | `10`    | Per-client IP rate limit (requests/second) |
-| `WRITE_TIMEOUT`          | No       | `300`   | HTTP write timeout in seconds (0 disables) |
+| Environment Variable       | Required | Default | Description                              |
+|----------------------------|----------|---------|------------------------------------------|
+| `PAPERLESS_URL`            | Yes      | —       | Base URL of your Paperless-ngx instance  |
+| `LISTEN_ADDR`              | No       | `:8080` | TCP address for the MCP server to listen |
+| `PROMETHEUS_METRICS_ADDR`  | No       | `:8081` | TCP address for the Prometheus `/metrics` endpoint (separate HTTP server) |
+| `RATE_LIMIT_GLOBAL`        | No       | `100`   | Global rate limit (requests/second)      |
+| `RATE_LIMIT_PER_CLIENT`    | No       | `10`    | Per-client IP rate limit (requests/second) |
+| `WRITE_TIMEOUT`            | No       | `300`   | HTTP write timeout in seconds (0 disables) |
 
 The Paperless-ngx API token is supplied by the MCP client in the `Authorization` header:
 ```
@@ -241,7 +243,7 @@ go tool cover -func=coverage.out
 | `cmd/server`                | 28.6%    |
 | `config`                    | 100.0%   |
 | `domain`                    | no stmts |
-| `handlers`                  | 92.3%    |
+| `handlers`                  | 92.5%    |
 | `infrastructure/paperless`  | 93.0%    |
 
 ### Mutation testing (gremlins)
@@ -262,7 +264,7 @@ Current results are informational (continue-on-error) — no KILLED mutants, all
 
 1. Define input/output types in `handlers/tools.go`
 2. Write the handler factory function in `handlers/tools.go`
-3. Register the tool via `handlers.RegisterTools()` in `handlers/registration.go`
+3. Register the tool via `handlers.RegisterTools(srv, metrics)` in `handlers/registration.go`
 4. If a new domain entity is needed, define it in `domain/` and add a repository interface
 5. If a new service is needed, wire it in `injectClientMiddleware` in `cmd/server/main.go` and document the new tool in [SPEC.md](SPEC.md)
 

@@ -310,7 +310,7 @@ Authentication and authorization are handled entirely by the Paperless-ngx backe
 - Batch JSON-RPC requests are limited to 100 items per batch to prevent amplification attacks.
 - All log strings are sanitized via `handlers.SanitizeLog` — control characters (0x00-0x1f, 0x7f) are stripped to prevent log injection.
 - No user management or session persistence is implemented — delegate to the MCP client layer.
-- **Prometheus metrics** are exposed on a separate HTTP server (default `:8081`) with no built-in authentication. The metrics endpoint must be firewalled or bound to `127.0.0.1` in production environments. Tool name labels in metrics are hardcoded at handler registration time (`WrapToolHandler`), preventing cardinailty injection from user-supplied request bodies.
+- **Prometheus metrics** are exposed on a separate HTTP server (default `:8081`) with no built-in authentication. The metrics endpoint must be firewalled or bound to `127.0.0.1` in production environments. Tool name labels in metrics are hardcoded at handler registration time (`WrapToolHandler`), preventing cardinality injection from user-supplied request bodies.
 
 ## Development
 
