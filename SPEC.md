@@ -39,6 +39,7 @@ The server follows a standard hexagonal (ports & adapters) architecture with a m
 | Transport         | Streamable HTTP (MCP spec 2025-03-26+, remote-capable)          |
 | HTTP Router       | `net/http` standard library + middleware pattern                |
 | Tool Registration | `handlers/registration.go` — `RegisterTools()` function         |
+| Metrics           | Prometheus (Go runtime + custom MCP metrics) on port 8081       |
 
 ## Configuration (Environment Variables)
 
@@ -46,6 +47,7 @@ The server follows a standard hexagonal (ports & adapters) architecture with a m
 |------------------------|----------|---------|--------------------------------------|
 | `PAPERLESS_URL`        | Yes      | —       | Base URL of the Paperless-ngx instance (e.g. `http://paperless:8000`) |
 | `LISTEN_ADDR`          | No       | `:8080` | TCP address to listen on             |
+| `PROMETHEUS_METRICS_ADDR` | No    | `:8081` | TCP address for the Prometheus `/metrics` endpoint (separate HTTP server, no auth) |
 | `RATE_LIMIT_GLOBAL`    | No       | `100`   | Global rate limit (requests/second)  |
 | `RATE_LIMIT_PER_CLIENT`| No       | `10`    | Per-client IP rate limit (requests/second) |
 | `WRITE_TIMEOUT`        | No       | `300`   | HTTP write timeout in seconds (0 disables) |
@@ -190,21 +192,39 @@ Performs a full-text search across all documents.
 
 ## Middleware Chain
 
-The server applies five middleware layers to every HTTP request, executed in this order (outermost first). The first two layers are the cheapest checks and prevent resource exhaustion before any body parsing or token extraction occurs.
+The server applies six middleware layers to every HTTP request, executed in this order (outermost first). The first two layers are the cheapest checks and prevent resource exhaustion before any body parsing or token extraction occurs.
 
-### 1. RateLimitMiddleware (`handlers/ratelimit.go`)
+### 1. RecoveryMiddleware (`handlers/middleware.go`)
 
-The outermost middleware. Implements two-tier token-bucket rate limiting using `golang.org/x/time/rate`:
+Catches panics in any downstream handler via `defer recover()`, logs the panic, and returns **500 Internal Server Error**. Without this middleware any panic in an HTTP goroutine would crash the entire server.
+
+### 2. MetricsMiddleware (`handlers/metrics.go`)
+
+Tracks the number of in-flight requests using the `mcp_active_requests` Prometheus gauge. The gauge is incremented before calling the next handler and decremented via `defer` — guaranteeing cleanup even if a downstream handler panics. This middleware does **not** read the request body; per-tool metrics (request count and duration) are recorded by `WrapToolHandler` at the handler registration level where the tool name is a hardcoded constant.
+
+Custom Prometheus metrics exposed on the metrics server:
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `mcp_tool_requests_total` | Counter | `{tool, status_class}` | Per-tool request count |
+| `mcp_tool_duration_seconds` | Histogram | `{tool}` | Per-tool request duration (DefBuckets: .005–10s) |
+| `mcp_active_requests` | Gauge | — | Current in-flight requests |
+
+Standard Go runtime metrics (`go_goroutines`, `go_memstats_*`, `go_gc_*`, etc.) are also available at the `/metrics` endpoint.
+
+### 3. RateLimitMiddleware (`handlers/ratelimit.go`)
+
+Implements two-tier token-bucket rate limiting using `golang.org/x/time/rate`:
 - **Global limit** (default 100 rps, configurable via `RATE_LIMIT_GLOBAL`) — prevents overall request flooding.
 - **Per-client limit** (default 10 rps, configurable via `RATE_LIMIT_PER_CLIENT`) — per-IP limiting using `RemoteAddr` or proxy headers (`X-Client-IP` highest priority, then `X-Forwarded-For` first IP in chain).
 
-Returns **429 Too Many Requests** when the limit is exceeded. Placed outermost because it is the cheapest check — no body reading or header parsing is required.
+Returns **429 Too Many Requests** when the limit is exceeded. Placed early because it is a cheap check — no body reading or header parsing is required.
 
-### 2. BodyLimitMiddleware (`handlers/middleware.go`)
+### 4. BodyLimitMiddleware (`handlers/middleware.go`)
 
 Limits the request body size to 1 MB using `http.MaxBytesReader`, preventing resource exhaustion from large requests. Placed before `LoggingMiddleware` so that `io.ReadAll` in the logging layer is bounded — a maliciously large payload is rejected by `MaxBytesReader` before the logging middleware reads it into memory.
 
-### 3. LoggingMiddleware (`handlers/middleware.go`)
+### 5. LoggingMiddleware (`handlers/middleware.go`)
 
 Reads and buffers the request body to parse the JSON-RPC method name (and tool name for `tools/call` requests). Validates that batch JSON-RPC requests do not exceed `MaxBatchSize` (100), rejecting larger batches with **400 Bad Request** to prevent amplification attacks. Then measures request duration and captures the HTTP status code and response body size via a wrapped `ResponseWriter`. Logs a single line at INFO level with the `mcp_log` prefix:
 
@@ -219,11 +239,11 @@ For `tools/call` requests, the `method` field reports the tool name (e.g. `searc
 
 The `Authorization` header (Bearer token) is **never** logged — only the HTTP method, path, MCP method name, timing, body sizes, and HTTP status code are recorded. All log strings are sanitized via `handlers.SanitizeLog` to remove control characters (0x00-0x1f, 0x7f) that could be used for log injection.
 
-### 4. TokenMiddleware (`handlers/middleware.go`)
+### 6. TokenMiddleware (`handlers/middleware.go`)
 
 Extracts the Paperless-ngx API token from the `Authorization` header. Supports both `Bearer <token>` and `Token <token>` schemes (case-insensitive). The token length is validated against `MaxTokenLength` (512 bytes) to prevent DoS via oversized headers. The raw token string is stored in the request context. Returns **401 Unauthorized** if the header is missing, malformed, or exceeds the maximum length.
 
-### 5. injectClientMiddleware (`cmd/server/main.go`)
+### 7. injectClientMiddleware (`cmd/server/main.go`)
 
 Retrieves the token from the context (placed there by `TokenMiddleware`). Creates the Paperless-ngx API client using a shared `http.Client` with:
 - **CheckRedirect** set to `http.ErrUseLastResponse` — prevents credential forwarding via redirects.
@@ -237,14 +257,17 @@ No token verification is performed by this server — authentication and authori
 
 1. MCP Client sends a POST request to the Streamable HTTP endpoint.
 2. The `Authorization: Bearer <paperless-api-token>` header is included in the request.
-3. `RateLimitMiddleware` checks the request against global and per-client rate limits. Returns **429 Too Many Requests** if exceeded.
-4. `BodyLimitMiddleware` enforces the 1 MB request body limit, preventing large payloads from reaching downstream layers.
-5. `LoggingMiddleware` reads and buffers the bounded body, records the MCP method name and request size, validates batch size (max 100), and starts the duration timer (without logging the token).
-6. `TokenMiddleware` extracts the token from the header (validates length ≤ 512 bytes) and stores it in the request context.
-7. `injectClientMiddleware` creates a Paperless-ngx API client with a shared `http.Client` (connection pooling, redirect protection, response body limit), and builds application services, storing them in the context.
-8. Tool handlers retrieve services from context and call the Paperless-ngx API using the token.
-9. On response, `LoggingMiddleware` emits the INFO log line with duration, response size, and HTTP status.
-10. The token is never stored on the server — it exists only as long as the request is being processed.
+3. `RecoveryMiddleware` wraps the chain — catches any panic in downstream layers.
+4. `MetricsMiddleware` increments the `mcp_active_requests` gauge (no body reads).
+5. `RateLimitMiddleware` checks the request against global and per-client rate limits. Returns **429 Too Many Requests** if exceeded.
+6. `BodyLimitMiddleware` enforces the 1 MB request body limit, preventing large payloads from reaching downstream layers.
+7. `LoggingMiddleware` reads and buffers the bounded body, records the MCP method name and request size, validates batch size (max 100), and starts the duration timer (without logging the token).
+8. `TokenMiddleware` extracts the token from the header (validates length ≤ 512 bytes) and stores it in the request context.
+9. `injectClientMiddleware` creates a Paperless-ngx API client with a shared `http.Client` (connection pooling, redirect protection, response body limit), and builds application services, storing them in the context.
+10. Tool handlers retrieve services from context and call the Paperless-ngx API using the token. Each tool handler is wrapped with `WrapToolHandler` which records per-tool metrics (request counter and duration histogram) with the hardcoded tool name.
+11. On response, `LoggingMiddleware` emits the INFO log line with duration, response size, and HTTP status.
+12. On completion, `MetricsMiddleware` decrements the `mcp_active_requests` gauge (via deferred call).
+13. The token is never stored on the server — it exists only as long as the request is being processed.
 
 ## Error Handling
 
@@ -287,6 +310,7 @@ Authentication and authorization are handled entirely by the Paperless-ngx backe
 - Batch JSON-RPC requests are limited to 100 items per batch to prevent amplification attacks.
 - All log strings are sanitized via `handlers.SanitizeLog` — control characters (0x00-0x1f, 0x7f) are stripped to prevent log injection.
 - No user management or session persistence is implemented — delegate to the MCP client layer.
+- **Prometheus metrics** are exposed on a separate HTTP server (default `:8081`) with no built-in authentication. The metrics endpoint must be firewalled or bound to `127.0.0.1` in production environments. Tool name labels in metrics are hardcoded at handler registration time (`WrapToolHandler`), preventing cardinailty injection from user-supplied request bodies.
 
 ## Development
 
@@ -349,7 +373,7 @@ Current coverage by package:
 | `cmd/server`                | 28.6%    |
 | `config`                    | 100.0%   |
 | `domain`                    | no stmts |
-| `handlers`                  | 92.3%    |
+| `handlers`                  | 92.5%    |
 | `infrastructure/paperless`  | 93.0%    |
 
 ### Mutation testing (gremlins)
