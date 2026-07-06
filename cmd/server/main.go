@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/time/rate"
 
 	"github.com/teran/mcp-paperless-ngx/application"
@@ -59,8 +60,12 @@ func main() {
 		},
 	})
 
+	// Create Prometheus registry and metrics collectors.
+	promRegistry := prometheus.NewRegistry()
+	metrics := handlers.NewMetrics(promRegistry)
+
 	// Register tools via handler factories.
-	handlers.RegisterTools(srv)
+	handlers.RegisterTools(srv, metrics)
 
 	// Create the Streamable HTTP handler.
 	mcpHandler := mcp.NewStreamableHTTPHandler(
@@ -73,24 +78,25 @@ func main() {
 	)
 
 	// Wrap with middlewares (outermost to innermost):
-	// recovery → rate limit → body limit → logging → token extraction → client injection → MCP handler.
+	// recovery → metrics → rate limit → body limit → logging → token → client injection → MCP handler.
 	// RecoveryMiddleware is outermost so that any panic anywhere in the chain
 	// is caught and the server stays alive.
-	// RateLimitMiddleware is second because it is the cheapest check (no body reading).
-	// BodyLimitMiddleware is third so that io.ReadAll in LoggingMiddleware
-	// is bounded by the 1 MB limit — a large malicious body is rejected before
-	// the logging middleware reads it into memory.
+	// MetricsMiddleware tracks the active-requests gauge only (no body reads).
+	// RateLimitMiddleware is third because it is the cheapest check (no body reading).
+	// BodyLimitMiddleware bounds the body for everything after it.
 	handler := handlers.RecoveryMiddleware(
-		handlers.RateLimitMiddleware(handlers.RateLimiterConfig{
-			GlobalLimit:    rate.Limit(cfg.RateLimitGlobal),
-			GlobalBurst:    cfg.RateLimitGlobal * 2,
-			PerClientLimit: rate.Limit(cfg.RateLimitPerClient),
-			PerClientBurst: cfg.RateLimitPerClient * 2,
-		})(
-			handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
-				handlers.LoggingMiddleware(
-					handlers.TokenMiddleware(
-						injectClientMiddleware(cfg.PaperlessURL, sharedHTTPClient)(mcpHandler),
+		handlers.MetricsMiddleware(metrics)(
+			handlers.RateLimitMiddleware(handlers.RateLimiterConfig{
+				GlobalLimit:    rate.Limit(cfg.RateLimitGlobal),
+				GlobalBurst:    cfg.RateLimitGlobal * 2,
+				PerClientLimit: rate.Limit(cfg.RateLimitPerClient),
+				PerClientBurst: cfg.RateLimitPerClient * 2,
+			})(
+				handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
+					handlers.LoggingMiddleware(
+						handlers.TokenMiddleware(
+							injectClientMiddleware(cfg.PaperlessURL, sharedHTTPClient)(mcpHandler),
+						),
 					),
 				),
 			),
@@ -111,7 +117,8 @@ func main() {
 	log.Printf("Paperless-ngx URL: %s", handlers.SanitizeLog(cfg.PaperlessURL))
 	log.Printf("Version: %s, commit: %s, built: %s", version, commit, date)
 
-	httpServer := &http.Server{ //nolint:exhaustruct
+	// ---- Main MCP HTTP server ----
+	mainServer := &http.Server{ //nolint:exhaustruct
 		Addr:              cfg.ListenAddr,
 		Handler:           mux,
 		ReadHeaderTimeout: 30 * time.Second,
@@ -120,11 +127,32 @@ func main() {
 		IdleTimeout:       120 * time.Second,
 	}
 
-	// Channel to capture server errors.
-	errCh := make(chan error, 1)
+	// ---- Metrics HTTP server ----
+	metricsHandler := handlers.RegisterMetricsOnRegistry(promRegistry)
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("GET /metrics", metricsHandler)
+
+	metricsServer := &http.Server{ //nolint:exhaustruct
+		Addr:              cfg.PrometheusMetricsAddr,
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	// Channel to capture server errors (buffered to hold both if both fail).
+	errCh := make(chan error, 2)
+
 	go func() {
 		log.Printf("Starting mcp-paperless-ngx server on %s", handlers.SanitizeLog(cfg.ListenAddr))
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := mainServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+	}()
+
+	go func() {
+		log.Printf("Starting Prometheus metrics server on %s", handlers.SanitizeLog(cfg.PrometheusMetricsAddr))
+		if err := metricsServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	}()
@@ -140,12 +168,15 @@ func main() {
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		cancel()
-		log.Fatalf("Server forced to shutdown: %v", err)
+	// Shut down both servers in order.
+	if err := mainServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Main server shutdown error: %v", err)
 	}
-	cancel()
+	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("Metrics server shutdown error: %v", err)
+	}
 
 	log.Println("Server stopped gracefully")
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/teran/mcp-paperless-ngx/application"
 )
@@ -125,5 +126,8 @@ func TestRegisterTools(t *testing.T) {
 		},
 	})
 
-	RegisterTools(srv)
+	reg := prometheus.NewRegistry()
+	metrics := NewMetrics(reg)
+
+	RegisterTools(srv, metrics)
 }

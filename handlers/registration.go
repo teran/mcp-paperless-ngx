@@ -49,53 +49,55 @@ func TagServiceFromContext(ctx context.Context) *application.TagService {
 // RegisterTools registers all MCP tools on the server.
 // Each tool handler retrieves its required services from request context
 // at runtime via the ContextWithServices chain set up by injectClientMiddleware.
-func RegisterTools(s *mcp.Server) {
+// If metrics is non-nil, each tool handler is wrapped with WrapToolHandler for
+// per-tool Prometheus metrics (request count and duration).
+func RegisterTools(s *mcp.Server, metrics *Metrics) {
 	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
 		Name:        "search_documents",
 		Description: "Search documents with filters (query, correspondent, tags, date range).",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SearchDocumentsInput) (*mcp.CallToolResult, SearchDocumentsOutput, error) {
+	}, WrapToolHandler(metrics, "search_documents", func(ctx context.Context, _ *mcp.CallToolRequest, in SearchDocumentsInput) (*mcp.CallToolResult, SearchDocumentsOutput, error) {
 		return NewSearchDocumentsHandler(DocServiceFromContext(ctx), CorrServiceFromContext(ctx), DocTypeServiceFromContext(ctx))(ctx, nil, in)
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
 		Name:        "get_document_content",
 		Description: "Get full OCR text and metadata of a document.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in GetDocumentContentInput) (*mcp.CallToolResult, DocumentDetail, error) {
+	}, WrapToolHandler(metrics, "get_document_content", func(ctx context.Context, _ *mcp.CallToolRequest, in GetDocumentContentInput) (*mcp.CallToolResult, DocumentDetail, error) {
 		return NewGetDocumentContentHandler(DocServiceFromContext(ctx), CorrServiceFromContext(ctx), DocTypeServiceFromContext(ctx))(ctx, nil, in)
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
 		Name:        "search_correspondents",
 		Description: "Search correspondents by name.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SearchCorrespondentsInput) (*mcp.CallToolResult, SearchCorrespondentsOutput, error) {
+	}, WrapToolHandler(metrics, "search_correspondents", func(ctx context.Context, _ *mcp.CallToolRequest, in SearchCorrespondentsInput) (*mcp.CallToolResult, SearchCorrespondentsOutput, error) {
 		return NewSearchCorrespondentsHandler(CorrServiceFromContext(ctx))(ctx, nil, in)
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
 		Name:        "get_documents_by_correspondent",
 		Description: "List documents for a correspondent.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in GetDocumentsByCorrespondentInput) (*mcp.CallToolResult, SearchDocumentsOutput, error) {
+	}, WrapToolHandler(metrics, "get_documents_by_correspondent", func(ctx context.Context, _ *mcp.CallToolRequest, in GetDocumentsByCorrespondentInput) (*mcp.CallToolResult, SearchDocumentsOutput, error) {
 		return NewGetDocumentsByCorrespondentHandler(DocServiceFromContext(ctx), CorrServiceFromContext(ctx), DocTypeServiceFromContext(ctx))(ctx, nil, in)
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
 		Name:        "list_tags",
 		Description: "List all tags.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ListTagsInput) (*mcp.CallToolResult, ListTagsOutput, error) {
+	}, WrapToolHandler(metrics, "list_tags", func(ctx context.Context, _ *mcp.CallToolRequest, in ListTagsInput) (*mcp.CallToolResult, ListTagsOutput, error) {
 		return NewListTagsHandler(TagServiceFromContext(ctx))(ctx, nil, in)
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
 		Name:        "get_documents_by_tag",
 		Description: "List documents for a tag.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in GetDocumentsByTagInput) (*mcp.CallToolResult, SearchDocumentsOutput, error) {
+	}, WrapToolHandler(metrics, "get_documents_by_tag", func(ctx context.Context, _ *mcp.CallToolRequest, in GetDocumentsByTagInput) (*mcp.CallToolResult, SearchDocumentsOutput, error) {
 		return NewGetDocumentsByTagHandler(DocServiceFromContext(ctx), CorrServiceFromContext(ctx), DocTypeServiceFromContext(ctx))(ctx, nil, in)
-	})
+	}))
 
 	mcp.AddTool(s, &mcp.Tool{ //nolint:exhaustruct
 		Name:        "fulltext_search",
 		Description: "Full-text search across all documents.",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in FulltextSearchInput) (*mcp.CallToolResult, FulltextSearchOutput, error) {
+	}, WrapToolHandler(metrics, "fulltext_search", func(ctx context.Context, _ *mcp.CallToolRequest, in FulltextSearchInput) (*mcp.CallToolResult, FulltextSearchOutput, error) {
 		return NewFulltextSearchHandler(DocServiceFromContext(ctx), CorrServiceFromContext(ctx), DocTypeServiceFromContext(ctx))(ctx, nil, in)
-	})
+	}))
 }
