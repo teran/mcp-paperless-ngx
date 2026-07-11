@@ -22,6 +22,10 @@ Thumbs.db
 # Dependency directories
 vendor/
 
+# Pre-built binaries from goreleaser (copied for Docker build)
+mcp-paperless-ngx-linux-amd64
+mcp-paperless-ngx-linux-arm64
+
 # Build output
 /dist/
 /releases/
