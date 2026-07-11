@@ -1,13 +1,2 @@
-.git/
-.gitignore
-.gitattributes
-.golangci.yml
-.goreleaser.yaml
-*.test
-*.out
-dist/
-releases/
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
+*
+!mcp-paperless-ngx-linux-*
