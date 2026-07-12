@@ -233,6 +233,7 @@ func resolveNames[T any](
 	names := make(map[int]string, len(ids))
 
 	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(20) // limit concurrent HTTP requests to Paperless-ngx
 	for id := range ids {
 		g.Go(func() error {
 			entity, err := getByID(ctx, id)
