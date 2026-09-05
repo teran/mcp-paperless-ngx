@@ -1,0 +1,51 @@
+version: 3
+workdir: .
+allow:
+  depOnAnyVendor: true
+  deepScan: false
+
+excludeFiles:
+  - "^.*_test\\.go$"
+
+components:
+  main:
+    in: cmd/**
+  domain:
+    in: domain/**
+  application:
+    in: application/**
+  infrastructure:
+    in: infrastructure/**
+  handlers:
+    in: handlers/**
+  config:
+    in: config/**
+
+commonComponents:
+  - main
+
+deps:
+  main:
+    mayDependOn:
+      - domain
+      - application
+      - infrastructure
+      - handlers
+      - config
+  domain:
+    mayDependOn: []
+    anyVendorDeps: true
+  application:
+    mayDependOn:
+      - domain
+  infrastructure:
+    mayDependOn:
+      - domain
+  handlers:
+    mayDependOn:
+      - domain
+      - application
+      - config
+  config:
+    mayDependOn: []
+    anyVendorDeps: true

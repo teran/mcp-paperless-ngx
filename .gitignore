@@ -34,4 +34,6 @@ mcp-paperless-ngx-linux-arm64
 .env
 .env.local
 *.env
-server
+# Root-only built binary; do NOT use a bare "server" pattern (it would also
+# match the cmd/server source directory).
+/server

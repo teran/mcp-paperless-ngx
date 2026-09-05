@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/teran/mcp-paperless-ngx/application"
@@ -15,7 +15,7 @@ import (
 )
 
 // Sentinel errors returned to the MCP client with user-friendly messages.
-// Detailed internal errors are logged server-side via log.Printf.
+// Detailed internal errors are logged server-side via logrus.
 var (
 	ErrSearchFailed          = errors.New("search failed")
 	ErrDocumentNotFound      = errors.New("document not found")
@@ -238,7 +238,7 @@ func resolveNames[T any](
 		g.Go(func() error {
 			entity, err := getByID(ctx, id)
 			if err != nil {
-				log.Printf("resolve %s name: id=%d: %v", logPrefix, id, err)
+				logrus.WithField("id", id).WithError(err).Warnf("resolve %s name", logPrefix)
 				return nil // best-effort: swallow error
 			}
 			if entity != nil {
@@ -293,7 +293,7 @@ func NewSearchDocumentsHandler(svc *application.DocumentService, corrSvc *applic
 			PageSize:        pageSize,
 		})
 		if err != nil {
-			log.Printf("ERROR search_documents: %v", err)
+			logrus.WithError(err).Error("search_documents failed")
 			return nil, SearchDocumentsOutput{}, fmt.Errorf("search_documents: %w", ErrSearchFailed)
 		}
 
@@ -313,7 +313,7 @@ func NewGetDocumentContentHandler(svc *application.DocumentService, corrSvc *app
 	return func(ctx context.Context, _ *mcp.CallToolRequest, input GetDocumentContentInput) (*mcp.CallToolResult, DocumentDetail, error) {
 		doc, err := svc.GetByID(ctx, input.DocumentID)
 		if err != nil {
-			log.Printf("ERROR get_document_content: %v", err)
+			logrus.WithError(err).Error("get_document_content failed")
 			return nil, DocumentDetail{}, fmt.Errorf("get_document_content: %w", ErrDocumentNotFound)
 		}
 
@@ -358,7 +358,7 @@ func NewSearchCorrespondentsHandler(svc *application.CorrespondentService) mcp.T
 
 		result, err := svc.Search(ctx, input.Query, page, pageSize)
 		if err != nil {
-			log.Printf("ERROR search_correspondents: %v", err)
+			logrus.WithError(err).Error("search_correspondents failed")
 			return nil, SearchCorrespondentsOutput{}, fmt.Errorf("search_correspondents: %w", ErrCorrespondentNotFound)
 		}
 
@@ -387,7 +387,7 @@ func NewGetDocumentsByCorrespondentHandler(svc *application.DocumentService, cor
 
 		result, err := svc.GetByCorrespondent(ctx, input.CorrespondentID, page, pageSize)
 		if err != nil {
-			log.Printf("ERROR get_documents_by_correspondent: %v", err)
+			logrus.WithError(err).Error("get_documents_by_correspondent failed")
 			return nil, SearchDocumentsOutput{}, fmt.Errorf("get_documents_by_correspondent: %w", ErrSearchFailed)
 		}
 
@@ -409,7 +409,7 @@ func NewListTagsHandler(svc *application.TagService) mcp.ToolHandlerFor[ListTags
 
 		result, err := svc.List(ctx, input.Query, page, pageSize)
 		if err != nil {
-			log.Printf("ERROR list_tags: %v", err)
+			logrus.WithError(err).Error("list_tags failed")
 			return nil, ListTagsOutput{}, fmt.Errorf("list_tags: %w", ErrListTagsFailed)
 		}
 
@@ -439,7 +439,7 @@ func NewGetDocumentsByTagHandler(svc *application.DocumentService, corrSvc *appl
 
 		result, err := svc.GetByTag(ctx, input.TagID, page, pageSize)
 		if err != nil {
-			log.Printf("ERROR get_documents_by_tag: %v", err)
+			logrus.WithError(err).Error("get_documents_by_tag failed")
 			return nil, SearchDocumentsOutput{}, fmt.Errorf("get_documents_by_tag: %w", ErrSearchFailed)
 		}
 
@@ -461,7 +461,7 @@ func NewFulltextSearchHandler(svc *application.DocumentService, corrSvc *applica
 
 		result, err := svc.FulltextSearch(ctx, input.Query, page, pageSize)
 		if err != nil {
-			log.Printf("ERROR fulltext_search: %v", err)
+			logrus.WithError(err).Error("fulltext_search failed")
 			return nil, FulltextSearchOutput{}, fmt.Errorf("fulltext_search: %w", ErrSearchFailed)
 		}
 

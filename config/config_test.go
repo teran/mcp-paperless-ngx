@@ -8,7 +8,6 @@ import (
 )
 
 func TestLoad(t *testing.T) {
-
 	t.Run("all env vars set correctly", func(t *testing.T) {
 		t.Setenv("PAPERLESS_URL", "http://paperless:8000")
 		t.Setenv("LISTEN_ADDR", ":9090")
@@ -69,7 +68,6 @@ func TestLoad(t *testing.T) {
 }
 
 func TestLoad_Errors(t *testing.T) {
-
 	t.Run("PAPERLESS_URL is required", func(t *testing.T) {
 		t.Setenv("PAPERLESS_URL", "")
 

@@ -1,13 +1,13 @@
 package handlers
 
 import (
-	"log"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 )
 
@@ -137,7 +137,10 @@ func RateLimitMiddleware(cfg RateLimiterConfig) func(http.Handler) http.Handler 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientIP := extractClientIP(r)
 			if !rl.Allow(clientIP) {
-				log.Printf("WARN rate_limit exceeded client_ip=%s method=%s", clientIP, r.Method) //nolint:gosec // clientIP and method are safe values
+				logrus.WithFields(logrus.Fields{
+					"client_ip": clientIP,
+					"method":    r.Method,
+				}).Warn("rate_limit exceeded")
 				http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
 				return
 			}

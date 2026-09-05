@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version: "stable"
+          go-version: "1.27"
           cache: true
       - uses: go-gremlins/gremlins-action@v1
         continue-on-error: true
