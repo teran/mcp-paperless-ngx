@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 
 	"github.com/teran/mcp-paperless-ngx/application"
@@ -30,14 +30,20 @@ var (
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		logrus.WithError(err).Fatal("failed to load configuration")
 	}
 
-	// sharedHTTPClient is reused across requests for connection pooling.
-	// CheckRedirect is set to http.ErrUseLastResponse to prevent credential
-	// forwarding — the http.Client never follows redirects, so the token
-	// cannot be leaked to an external URL via a 302 response from Paperless-ngx.
-	sharedHTTPClient := &http.Client{ //nolint:exhaustruct
+	if err := run(cfg); err != nil {
+		logrus.WithError(err).Fatal("failed to run server")
+	}
+}
+
+// newSharedHTTPClient creates the shared HTTP client reused across requests.
+// CheckRedirect is set to http.ErrUseLastResponse to prevent credential
+// forwarding — the http.Client never follows redirects, so the token
+// cannot be leaked to an external URL via a 302 response from Paperless-ngx.
+func newSharedHTTPClient() *http.Client {
+	return &http.Client{ //nolint:exhaustruct
 		Timeout: 30 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
@@ -49,7 +55,18 @@ func main() {
 			DisableKeepAlives:  false,
 		},
 	}
+}
 
+// serverHandlers bundles the HTTP handlers for the main MCP server and the
+// Prometheus metrics server.
+type serverHandlers struct {
+	main    http.Handler
+	metrics http.Handler
+}
+
+// buildHandlers constructs the main MCP handler (including the full middleware
+// chain and the health-check endpoint) and the Prometheus metrics handler.
+func buildHandlers(cfg *config.Config, sharedHTTPClient *http.Client) serverHandlers {
 	// Create the MCP server instance.
 	srv := mcp.NewServer(&mcp.Implementation{ //nolint:exhaustruct
 		Name:    "mcp-paperless-ngx",
@@ -114,23 +131,25 @@ func main() {
 	})
 	mux.Handle("/", handler)
 
-	log.Printf("Paperless-ngx URL: %s", handlers.SanitizeLog(cfg.PaperlessURL))
-	log.Printf("Version: %s, commit: %s, built: %s", version, commit, date)
+	metricsHandler := handlers.RegisterMetricsOnRegistry(promRegistry)
 
-	// ---- Main MCP HTTP server ----
+	return serverHandlers{main: mux, metrics: metricsHandler}
+}
+
+// buildServers constructs the main MCP HTTP server and the Prometheus metrics
+// HTTP server from the given handlers.
+func buildServers(cfg *config.Config, h serverHandlers) (*http.Server, *http.Server) {
 	mainServer := &http.Server{ //nolint:exhaustruct
 		Addr:              cfg.ListenAddr,
-		Handler:           mux,
+		Handler:           h.main,
 		ReadHeaderTimeout: 30 * time.Second,
 		ReadTimeout:       60 * time.Second,
 		WriteTimeout:      cfg.WriteTimeout,
 		IdleTimeout:       120 * time.Second,
 	}
 
-	// ---- Metrics HTTP server ----
-	metricsHandler := handlers.RegisterMetricsOnRegistry(promRegistry)
 	metricsMux := http.NewServeMux()
-	metricsMux.Handle("GET /metrics", metricsHandler)
+	metricsMux.Handle("GET /metrics", h.metrics)
 
 	metricsServer := &http.Server{ //nolint:exhaustruct
 		Addr:              cfg.PrometheusMetricsAddr,
@@ -140,18 +159,37 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
+	return mainServer, metricsServer
+}
+
+// run wires the shared HTTP client, builds the servers, starts them, and blocks
+// until a shutdown signal or a fatal server error is received, then shuts both
+// servers down gracefully.
+func run(cfg *config.Config) error {
+	sharedHTTPClient := newSharedHTTPClient()
+
+	h := buildHandlers(cfg, sharedHTTPClient)
+	mainServer, metricsServer := buildServers(cfg, h)
+
+	logrus.WithField("url", handlers.SanitizeLog(cfg.PaperlessURL)).Info("paperless-ngx url")
+	logrus.WithFields(logrus.Fields{
+		"version": version,
+		"commit":  commit,
+		"built":   date,
+	}).Info("server version")
+
 	// Channel to capture server errors (buffered to hold both if both fail).
 	errCh := make(chan error, 2)
 
 	go func() {
-		log.Printf("Starting mcp-paperless-ngx server on %s", handlers.SanitizeLog(cfg.ListenAddr))
+		logrus.WithField("addr", handlers.SanitizeLog(cfg.ListenAddr)).Info("starting mcp-paperless-ngx server")
 		if err := mainServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	}()
 
 	go func() {
-		log.Printf("Starting Prometheus metrics server on %s", handlers.SanitizeLog(cfg.PrometheusMetricsAddr))
+		logrus.WithField("addr", handlers.SanitizeLog(cfg.PrometheusMetricsAddr)).Info("starting prometheus metrics server")
 		if err := metricsServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -162,9 +200,9 @@ func main() {
 	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 	select {
 	case sig := <-quit:
-		log.Printf("Received signal %v, shutting down...", sig)
+		logrus.WithField("signal", sig).Info("received signal, shutting down")
 	case err := <-errCh:
-		log.Printf("Server error: %v", err)
+		logrus.WithError(err).Error("server error")
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -172,13 +210,14 @@ func main() {
 
 	// Shut down both servers in order.
 	if err := mainServer.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Main server shutdown error: %v", err)
+		logrus.WithError(err).Error("main server shutdown error")
 	}
 	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Metrics server shutdown error: %v", err)
+		logrus.WithError(err).Error("metrics server shutdown error")
 	}
 
-	log.Println("Server stopped gracefully")
+	logrus.Info("server stopped gracefully")
+	return nil
 }
 
 // injectClientMiddleware creates the Paperless-ngx client and attaches

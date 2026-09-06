@@ -76,6 +76,10 @@ Search documents with configurable filters.
 
 **Output**: Paginated list of document summaries (id, title, correspondent, correspondent_name, document_type, document_type_name, tags, created, mime_type, archive_serial_number, page_count).
 
+**Annotations (hints)**: `readOnlyHint: true`, `idempotentHint: true`, `destructiveHint: false`, `openWorldHint: false`.
+
+**Instructions**: Use this as the primary way to find documents. `query` is a full-text search against Paperless-ngx; `correspondent_id` and `tag_ids` narrow the result set. `tag_ids` uses AND semantics — a document must have **all** listed tags. `created_after`/`created_before` are ISO 8601 dates. Pagination via `page`/`page_size` (default 25, max 100). Safe to call repeatedly; it never mutates state.
+
 ---
 
 ### 2. `get_document_content`
@@ -108,6 +112,10 @@ Retrieve the full text content (OCR text) of a specific document.
 | `mime_type`           | string | MIME type (e.g. `application/pdf`)           |
 | `page_count`          | *int   | Number of pages (nullable)                   |
 
+**Annotations (hints)**: `readOnlyHint: true`, `idempotentHint: true`, `destructiveHint: false`, `openWorldHint: false`.
+
+**Instructions**: Retrieves the full OCR text and metadata of a single document. `document_id` is required and must reference an existing document; a non-existent ID yields an error. The `content` field may be large (up to the 100 MB response limit). Prefer `search_documents`/`fulltext_search` to locate documents first, then use this to fetch full content. Never called to modify a document.
+
 ---
 
 ### 3. `search_correspondents`
@@ -123,6 +131,10 @@ Search correspondents by name.
 | `page_size` | int  | no       | Results per page (default: 25)     |
 
 **Output**: List of matching correspondents (id, name, slug, document_count).
+
+**Annotations (hints)**: `readOnlyHint: true`, `idempotentHint: true`, `destructiveHint: false`, `openWorldHint: false`.
+
+**Instructions**: Finds correspondents by name (`query`, substring match). Use this to resolve a human-readable correspondent name into its numeric `correspondent_id` before passing it to `search_documents` or `get_documents_by_correspondent`. Pagination via `page`/`page_size` (default 25). Read-only — never creates or edits correspondents.
 
 ---
 
@@ -140,6 +152,10 @@ List documents associated with a specific correspondent.
 
 **Output**: Paginated list of documents for the given correspondent (id, title, correspondent, correspondent_name, document_type, document_type_name, tags, created, mime_type, archive_serial_number, page_count).
 
+**Annotations (hints)**: `readOnlyHint: true`, `idempotentHint: true`, `destructiveHint: false`, `openWorldHint: false`.
+
+**Instructions**: Lists documents belonging to a specific correspondent. `correspondent_id` is required (resolve it via `search_correspondents`). Returns the same document-summary shape as `search_documents`. Pagination via `page`/`page_size` (default 25, max 100). Read-only.
+
 ---
 
 ### 5. `list_tags`
@@ -155,6 +171,10 @@ Retrieve the full list of tags.
 | `page_size` | int    | no       | Results per page (default: 25)         |
 
 **Output**: List of tags (id, name, color, is_inbox_tag, document_count).
+
+**Annotations (hints)**: `readOnlyHint: true`, `idempotentHint: true`, `destructiveHint: false`, `openWorldHint: false`.
+
+**Instructions**: Returns the full list of tags; optional `query` filters by tag name (substring match). Use this to resolve a tag name into its numeric `tag_id` before filtering documents by tag. Pagination via `page`/`page_size` (default 25). Read-only — never creates or edits tags.
 
 ---
 
@@ -172,6 +192,10 @@ List documents associated with a specific tag.
 
 **Output**: Paginated list of documents for the given tag (id, title, correspondent, correspondent_name, document_type, document_type_name, tags, created, mime_type, archive_serial_number, page_count).
 
+**Annotations (hints)**: `readOnlyHint: true`, `idempotentHint: true`, `destructiveHint: false`, `openWorldHint: false`.
+
+**Instructions**: Lists documents carrying a specific tag. `tag_id` is required (resolve it via `list_tags`). Returns the same document-summary shape as `search_documents`. Pagination via `page`/`page_size` (default 25, max 100). Read-only.
+
 ---
 
 ### 7. `fulltext_search`
@@ -187,6 +211,10 @@ Performs a full-text search across all documents.
 | `page_size` | int    | no       | Results per page (default: 25, max: 100) |
 
 **Output**: Paginated list of document results with search highlights (id, title, correspondent, correspondent_name, document_type, document_type_name, tags, created, highlights).
+
+**Annotations (hints)**: `readOnlyHint: true`, `idempotentHint: true`, `destructiveHint: false`, `openWorldHint: false`.
+
+**Instructions**: Performs a full-text search across all documents and returns matches with `highlights` showing where the query terms appear. `query` is required. Use this when you need ranked full-text results with context snippets; for structured filtering by correspondent/tags use `search_documents`. Pagination via `page`/`page_size` (default 25, max 100). Read-only.
 
 ---
 
@@ -312,11 +340,23 @@ Authentication and authorization are handled entirely by the Paperless-ngx backe
 - No user management or session persistence is implemented — delegate to the MCP client layer.
 - **Prometheus metrics** are exposed on a separate HTTP server (default `:8081`) with no built-in authentication. The metrics endpoint must be firewalled or bound to `127.0.0.1` in production environments. Tool name labels in metrics are hardcoded at handler registration time (`WrapToolHandler`), preventing cardinality injection from user-supplied request bodies.
 
+### Static-analysis findings: fix, don't suppress
+
+Findings produced by static analysis must be **fixed, not suppressed**:
+
+- **gosec / golangci-lint** — security-relevant findings from the lint pipeline (`.golangci.yml` with `gosec` enabled) must be resolved by fixing the underlying code.
+- **govulncheck** — known vulnerabilities in the dependency graph must be resolved by upgrading to a patched version of the affected module.
+- **go-arch-lint** — architecture violations (`go-arch-lint`) must be resolved by moving/reworking the offending code to respect the declared package boundaries.
+
+A targeted `//nolint:<linter>` directive is permitted only when it addresses a deliberate, documented exception, and it **must** carry an inline justification explaining why the suppression is safe and required. Unjustified suppressions, blanket file/package-level disables, and suppressing a finding simply to silence CI are not allowed.
+
+Suppressing a finding instead of fixing it should be treated as a defect and called out in code review.
+
 ## Development
 
 ### Prerequisites
 
-- Go 1.26+
+- Go 1.27+ (see `go.mod` — `go 1.27.0`)
 - golangci-lint (for linting)
 - goreleaser (highly recommended for building/releasing)
 - gremlins (for mutation testing, optional)
@@ -344,6 +384,16 @@ Every commit on any branch is checked by three workflows:
 2. **go test** — unit tests with coverage profile.
 3. **gremlins unleash** — mutation testing (informational, does not block).
 
+### Test-driven development (TDD) workflow
+
+Feature work and bug fixes follow a strict **test-first** workflow, executed by two agents in **isolated contexts**:
+
+1. **Tests are written first by the `@qa` agent** — in an isolated context, `@qa` authors the tests that specify the desired behaviour (unit tests and/or integration tests against the Paperless-ngx HTTP API) before any implementation exists. These tests are expected to fail at this stage.
+2. **Implementation is written by the `@developer` agent** — in a separate isolated context, `@developer` implements the feature (tool handlers, services, client) to make the tests written by `@qa` pass.
+3. **Verification** — the full suite must pass (`go test -count=1 ./...`) and static analysis must be clean (`golangci-lint run ./...`) before the change is considered complete.
+
+Because `@qa` and `@developer` work in isolated contexts, the tests act as the executable specification and the single source of truth for behaviour. `@qa` does not implement, and `@developer` does not author the tests for their own changes. This separation keeps the tests independent of implementation shortcuts and enforces that behaviour is specified before code is written.
+
 ### Linting
 
 ```bash
@@ -365,7 +415,7 @@ go test -coverprofile=coverage.out -count=1 ./...
 go tool cover -func=coverage.out
 ```
 
-Current coverage by package:
+Current coverage by package (measured in CI, updated after each pipeline run; regenerate locally with the `go test -coverprofile` commands above):
 
 | Package                     | Coverage |
 |-----------------------------|----------|
@@ -375,6 +425,8 @@ Current coverage by package:
 | `domain`                    | no stmts |
 | `handlers`                  | 92.5%    |
 | `infrastructure/paperless`  | 93.0%    |
+
+> **Note:** the percentages above are point-in-time values captured at a previous CI run. They are illustrative, not authoritative. Actual, current coverage figures are generated by `go test -coverprofile=coverage.out -count=1 ./...` and must be refreshed from the most recent CI coverage artifact — do not treat these numbers as live guarantees.
 
 ### Mutation testing (gremlins)
 
@@ -402,5 +454,5 @@ Current mutation testing results are informational (not blocking) — the projec
 
 Dependencies are updated automatically via [Dependabot](https://docs.github.com/code-security/dependabot) (`.github/dependabot.yml`):
 - Go module dependencies — checked weekly
-- Docker base image (`golang:1.26-alpine`) — checked weekly
+- Docker base images (`alpine:latest` and `scratch` in the multi-stage `Dockerfile`) — checked weekly. Note: the Dockerfile has no Go build stage — it is multi-stage `alpine` + `scratch` and copies a pre-built binary produced by goreleaser, so there is no `golang:*` base image to track.
 - GitHub Actions — checked weekly

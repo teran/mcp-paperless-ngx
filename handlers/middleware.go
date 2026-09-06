@@ -7,11 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/sirupsen/logrus"
 )
 
 // checkBatchSize validates JSON-RPC batch request size.
@@ -153,7 +154,7 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				log.Printf("ERROR panic recovered: %v", rec)
+				logrus.WithField("error", rec).Error("panic recovered")
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
 		}()
@@ -173,7 +174,7 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		// so reading is bounded to 1 MB.
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			log.Printf("INFO mcp_log request_error=read_body error=%v", err)
+			logrus.WithError(err).Info("request body read failed")
 			http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
 			return
 		}
@@ -185,8 +186,15 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		// Reject batch requests that exceed MaxBatchSize to prevent
 		// amplification attacks.
 		if err := checkBatchSize(body); err != nil {
-			log.Printf("INFO mcp_log http_method=%s path=%s method=%s duration=%v req_size=%d resp_size=%d status=%d", //nolint:gosec
-				SanitizeLog(r.Method), SanitizeLog(r.URL.Path), mcpMethod, time.Since(start), reqSize, 0, http.StatusBadRequest)
+			logrus.WithFields(logrus.Fields{
+				"http_method": SanitizeLog(r.Method),
+				"path":        SanitizeLog(r.URL.Path),
+				"method":      mcpMethod,
+				"duration":    time.Since(start),
+				"req_size":    reqSize,
+				"resp_size":   0,
+				"status":      http.StatusBadRequest,
+			}).Info("mcp_log")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -200,8 +208,15 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(lrw, r)
 
 		duration := time.Since(start)
-		log.Printf("INFO mcp_log http_method=%s path=%s method=%s duration=%v req_size=%d resp_size=%d status=%d", //nolint:gosec
-			SanitizeLog(r.Method), SanitizeLog(r.URL.Path), mcpMethod, duration, reqSize, lrw.bodySize, lrw.statusCode)
+		logrus.WithFields(logrus.Fields{
+			"http_method": SanitizeLog(r.Method),
+			"path":        SanitizeLog(r.URL.Path),
+			"method":      mcpMethod,
+			"duration":    duration,
+			"req_size":    reqSize,
+			"resp_size":   lrw.bodySize,
+			"status":      lrw.statusCode,
+		}).Info("mcp_log")
 	})
 }
 

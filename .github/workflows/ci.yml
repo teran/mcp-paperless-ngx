@@ -1,9 +1,12 @@
 name: CI
 
 on:
+  # Only run on direct pushes to the default branch; feature branches are
+  # covered once by pull_request. A bare "**" here would double-run CI for PRs
+  # opened from branches in this repo (once for push, once for pull_request).
   push:
     branches:
-      - "**"
+      - master
   pull_request:
     branches:
       - "**"
@@ -19,7 +22,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
-          go-version: "stable"
+          go-version: "1.27"
           cache: true
 
       - name: golangci-lint
@@ -28,15 +31,30 @@ jobs:
           version: latest
           args: --config .golangci.yml
 
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: go-arch-lint
+        run: |
+          go install github.com/fe3dback/go-arch-lint@latest
+          go-arch-lint check
+
+      - name: gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec ./...
+
       - name: Run tests
         run: go test -race -coverprofile=coverage.out -count=1 ./...
 
       - name: Check coverage threshold
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep '^total:' | awk '{print $3}' | sed 's/%//')
-          echo "### Coverage: ${COVERAGE}% (threshold: 85%)" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Coverage: ${COVERAGE}% (threshold: 95%)" >> "$GITHUB_STEP_SUMMARY"
           echo "Coverage: ${COVERAGE}%"
-          THRESHOLD=85
+          THRESHOLD=95
           if awk "BEGIN {exit !($COVERAGE < $THRESHOLD)}"; then
             echo "❌ Coverage ${COVERAGE}% is below threshold of ${THRESHOLD}%"
             echo "❌ Coverage ${COVERAGE}% is below threshold of ${THRESHOLD}%" >> "$GITHUB_STEP_SUMMARY"

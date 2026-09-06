@@ -86,6 +86,16 @@ When building or modifying this server, the following specialized agents may be 
 | `code-review` | Reviewing merge requests before deployment      |
 | `devops`    | CI/CD pipelines, Docker image, deployment, mutation testing |
 
+### TDD workflow & isolated contexts
+
+Feature work and bug fixes follow a strict **test-first (TDD)** workflow using isolated agent contexts:
+
+1. **`@qa`** writes the tests first, **in an isolated context** — it specifies the desired behaviour before any implementation exists. Tests are expected to fail at this stage.
+2. **`@developer`** writes the implementation, **in a separate isolated context** — it implements the feature to make `@qa`'s tests pass.
+3. **Verification** — the full suite must pass (`go test -count=1 ./...`) and static analysis must be clean (`golangci-lint run ./...`) before a change is complete.
+
+`@qa` never implements and `@developer` never authors tests for their own changes. The isolated contexts keep the tests an independent, executable specification and prevent `@developer` from bypassing them. See the "Test-driven development (TDD) workflow" section of `SPEC.md`.
+
 ## Conflict Resolution
 
 If multiple agents provide contradictory recommendations:
