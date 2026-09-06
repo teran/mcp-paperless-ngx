@@ -436,8 +436,8 @@ Current coverage by package (measured in CI, updated after each pipeline run; re
 # Install gremlins (one-time)
 go install github.com/go-gremlins/gremlins/cmd/gremlins@latest
 
-# Run mutation testing on packages with high coverage
-gremlins unleash handlers application infrastructure/paperless config
+# Run mutation testing across the whole module
+gremlins unleash .
 ```
 
 Gremlins runs as a **hard gate** (no `continue-on-error`): the CI job fails if the **test efficacy** (percent of KILLED mutants over KILLED + LIVED) falls below the configured threshold (currently `--threshold-efficacy=90`). A failing mutation score blocks the merge until the corresponding tests are hardened so the surviving (`LIVED`) mutants are killed.

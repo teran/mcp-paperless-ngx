@@ -254,8 +254,8 @@ Mutation testing evaluates test quality by introducing small changes into the so
 # Install gremlins (one-time)
 go install github.com/go-gremlins/gremlins/cmd/gremlins@latest
 
-# Run mutation testing on packages with high coverage
-gremlins unleash handlers application infrastructure/paperless config
+# Run mutation testing across the whole module
+gremlins unleash .
 ```
 
 Gremlins runs as a **hard gate** (no `continue-on-error`): the CI job fails if the **test efficacy** (percent of KILLED mutants over KILLED + LIVED) falls below `--threshold-efficacy=90`. A failing mutation score blocks the merge until the surviving (`LIVED`) mutants are killed by hardened tests. `--threshold-mcover` is `0` so TIMED OUT / NOT COVERED mutants do not gate the build; the efficacy threshold is intended to be raised towards 100% over time.

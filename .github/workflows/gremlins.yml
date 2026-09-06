@@ -21,5 +21,5 @@ jobs:
           args: >-
             --threshold-efficacy=90
             --threshold-mcover=0
-            handlers application infrastructure/paperless config
+            .
           workdir: .
