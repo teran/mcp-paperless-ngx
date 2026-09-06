@@ -67,7 +67,7 @@ Every commit on any branch is checked by three workflows:
 
 1. **golangci-lint** — static analysis with `gosec` enabled.
 2. **go test** — unit tests with coverage profile (uploaded as artifact).
-3. **gremlins unleash** — mutation testing on packages with highest coverage (`handlers`, `application`, `infrastructure/paperless`, `config`). Runs as `continue-on-error` — informational only, does not block the PR.
+3. **gremlins unleash** — mutation testing on packages with highest coverage (`handlers`, `application`, `infrastructure/paperless`, `config`). Runs as a **hard gate** (no `continue-on-error`): the job fails if test efficacy drops below `--threshold-efficacy=90` (currently), blocking the PR until surviving (`LIVED`) mutants are killed by improved tests.
 
 Workflow files:
 - `.github/workflows/ci.yml` — lint + test + coverage upload

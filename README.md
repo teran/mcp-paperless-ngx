@@ -204,7 +204,7 @@ When using `goreleaser`, binaries are placed in the `dist/` directory.
 - Go (version as declared in `go.mod`)
 - golangci-lint (for linting)
 - goreleaser (highly recommended for building/releasing)
-- gremlins (for mutation testing, optional)
+- gremlins (for mutation testing)
 
 ### CI Pipeline
 
@@ -214,7 +214,7 @@ Every commit on any branch is checked by three quality gates:
 |------|----------|--------|
 | 🔍 golangci-lint | `.github/workflows/ci.yml` | ✅ Blocks PR |
 | 🧪 go test | `.github/workflows/ci.yml` | ✅ Blocks PR |
-| 🧟 gremlins unleash | `.github/workflows/gremlins.yml` | ℹ️ Informational |
+| 🧟 gremlins unleash | `.github/workflows/gremlins.yml` | ✅ Blocks PR (efficacy ≥ 90%) |
 
 ### Linting
 
@@ -258,7 +258,7 @@ go install github.com/go-gremlins/gremlins/cmd/gremlins@latest
 gremlins unleash handlers application infrastructure/paperless config
 ```
 
-Current results are informational (continue-on-error) — no KILLED mutants, all TIMED OUT. This is typical for projects with HTTP handler and network tests.
+Gremlins runs as a **hard gate** (no `continue-on-error`): the CI job fails if the **test efficacy** (percent of KILLED mutants over KILLED + LIVED) falls below `--threshold-efficacy=90`. A failing mutation score blocks the merge until the surviving (`LIVED`) mutants are killed by hardened tests. `--threshold-mcover` is `0` so TIMED OUT / NOT COVERED mutants do not gate the build; the efficacy threshold is intended to be raised towards 100% over time.
 
 ### Adding a new tool
 
