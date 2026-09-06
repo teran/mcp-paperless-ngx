@@ -382,7 +382,7 @@ Every commit on any branch is checked by three workflows:
 
 1. **golangci-lint** — static analysis with `gosec` enabled.
 2. **go test** — unit tests with coverage profile.
-3. **gremlins unleash** — mutation testing (informational, does not block).
+3. **gremlins unleash** — mutation testing as a **hard gate**: the build fails if test efficacy falls below the configured threshold (see [Mutation testing](#mutation-testing-gremlins)).
 
 ### Test-driven development (TDD) workflow
 
@@ -436,11 +436,13 @@ Current coverage by package (measured in CI, updated after each pipeline run; re
 # Install gremlins (one-time)
 go install github.com/go-gremlins/gremlins/cmd/gremlins@latest
 
-# Run mutation testing on packages with high coverage
-gremlins unleash handlers application infrastructure/paperless config
+# Run mutation testing across the whole module
+gremlins unleash .
 ```
 
-Current mutation testing results are informational (not blocking) — the project has no KILLED mutants because all covered mutants result in TIMED OUT (condition negation changes test timing/retry behaviour). This is typical for projects with HTTP handler and network tests. Mutation coverage will improve as more edge-case tests are added.
+Gremlins runs as a **hard gate** (no `continue-on-error`): the CI job fails if the **test efficacy** (percent of KILLED mutants over KILLED + LIVED) falls below the configured threshold (currently `--threshold-efficacy=90`). A failing mutation score blocks the merge until the corresponding tests are hardened so the surviving (`LIVED`) mutants are killed.
+
+`--threshold-mcover` (mutation coverage) is set to `0`: TIMED OUT / NOT COVERED mutants (typical for HTTP-handler and network tests) do not gate the build. The efficacy threshold is intended to be raised towards 100% as more edge-case tests are added.
 
 ### Adding a new tool
 
