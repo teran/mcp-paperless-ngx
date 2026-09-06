@@ -1,9 +1,12 @@
 name: CI
 
 on:
+  # Only run on direct pushes to the default branch; feature branches are
+  # covered once by pull_request. A bare "**" here would double-run CI for PRs
+  # opened from branches in this repo (once for push, once for pull_request).
   push:
     branches:
-      - "**"
+      - master
   pull_request:
     branches:
       - "**"
