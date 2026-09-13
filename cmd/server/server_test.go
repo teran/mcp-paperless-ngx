@@ -39,14 +39,14 @@ func TestNewSharedHTTPClient(t *testing.T) {
 	if client == nil {
 		t.Fatal("expected non-nil client")
 	}
-	if client.Timeout != 30*time.Second {
-		t.Errorf("expected 30s timeout, got %s", client.Timeout)
+	if client.Timeout() != 30*time.Second {
+		t.Errorf("expected 30s timeout, got %s", client.Timeout())
 	}
-	if client.CheckRedirect == nil {
-		t.Fatal("expected CheckRedirect to be set")
+	if client.RetryCount() != 2 {
+		t.Errorf("expected retry count 2, got %d", client.RetryCount())
 	}
-	if client.Transport == nil {
-		t.Fatal("expected Transport to be set")
+	if _, err := client.HTTPTransport(); err != nil {
+		t.Fatalf("expected Transport to be set, got error: %v", err)
 	}
 
 	// Verify redirect protection: the client must not follow redirects.
@@ -55,15 +55,13 @@ func TestNewSharedHTTPClient(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, ts.URL, nil)
-	resp, err := client.Do(req)
+	resp, err := client.R().SetContext(t.Context()).Get(ts.URL)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusFound {
-		t.Errorf("expected 302 (redirect not followed), got %d", resp.StatusCode)
+	if resp.StatusCode() != http.StatusFound {
+		t.Errorf("expected 302 (redirect not followed), got %d", resp.StatusCode())
 	}
 }
 

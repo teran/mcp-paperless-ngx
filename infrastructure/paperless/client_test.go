@@ -10,17 +10,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"resty.dev/v3"
+
 	"github.com/teran/mcp-paperless-ngx/domain"
 	"github.com/teran/mcp-paperless-ngx/infrastructure/paperless"
 )
 
-// testHTTPClient is a shared HTTP client for tests that never follows redirects.
-var testHTTPClient = &http.Client{ //nolint:gochecknoglobals
-	Timeout: 5 * time.Second,
-	CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		return http.ErrUseLastResponse
-	},
-}
+// testHTTPClient is a shared resty client for tests that never follows redirects.
+var testHTTPClient = resty.New().
+	SetTimeout(5 * time.Second).
+	SetRedirectPolicy(resty.RedirectNoPolicy())
 
 // ---------------------------------------------------------------------------
 // helper functions
@@ -1978,5 +1978,55 @@ func TestClient_Search_Status300_Rejected(t *testing.T) {
 	}
 	if !errors.Is(err, paperless.ErrAPIClient) {
 		t.Errorf("error should wrap ErrAPIClient, got %T", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Outbound request correlation (L9) and per-request logging
+// ---------------------------------------------------------------------------
+
+func TestClient_ForwardsRequestID(t *testing.T) {
+	t.Parallel()
+
+	var gotRequestID string
+	srv := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		gotRequestID = r.Header.Get("X-Request-ID")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(paginatedResponse([]any{sampleDocumentRaw}))
+	})
+	defer srv.Close()
+
+	client := newClient(srv.URL)
+	client.SetLogger(logrus.NewEntry(logrus.New()))
+
+	ctx := domain.WithRequestID(t.Context(), "req-correlation-1")
+	_, err := client.Search(ctx, domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
+	if err != nil {
+		t.Fatalf("Search() error = %v", err)
+	}
+	if gotRequestID != "req-correlation-1" {
+		t.Errorf("X-Request-ID = %q, want %q", gotRequestID, "req-correlation-1")
+	}
+}
+
+func TestClient_OutboundLogging_NilResponse(t *testing.T) {
+	t.Parallel()
+
+	client := paperless.NewClient("http://127.0.0.1:1", "test-token", testHTTPClient)
+	client.SetLogger(logrus.NewEntry(logrus.New()))
+
+	_, err := client.Search(t.Context(), domain.SearchDocumentsParams{Page: 1, PageSize: 25}) //nolint:exhaustruct
+	if err == nil {
+		t.Fatal("expected error for unreachable server, got nil")
+	}
+}
+
+func TestClient_SetLogger_Chainable(t *testing.T) {
+	t.Parallel()
+
+	client := newClient("http://example.com")
+	if got := client.SetLogger(logrus.NewEntry(logrus.New())); got != client {
+		t.Error("SetLogger should return the same client for chaining")
 	}
 }

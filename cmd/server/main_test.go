@@ -6,15 +6,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"resty.dev/v3"
+
 	"github.com/teran/mcp-paperless-ngx/handlers"
 )
 
-// testHTTPClient is a shared HTTP client for tests that never follows redirects.
-var testHTTPClient = &http.Client{ //nolint:gochecknoglobals
-	CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		return http.ErrUseLastResponse
-	},
-}
+// testHTTPClient is a shared resty client for tests that never follows redirects.
+var testHTTPClient = resty.New().SetRedirectPolicy(resty.RedirectNoPolicy())
 
 // ---------------------------------------------------------------------------
 // injectClientMiddleware tests

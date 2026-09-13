@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"resty.dev/v3"
+
 	"github.com/teran/mcp-paperless-ngx/domain"
 	"github.com/teran/mcp-paperless-ngx/infrastructure/paperless"
 )
@@ -91,15 +93,13 @@ func TestClient_InvalidBaseURL_BuildURL(t *testing.T) {
 func TestClient_ResponseBodyReadError(t *testing.T) {
 	t.Parallel()
 
-	client := paperless.NewClient("http://example.com", "token", &http.Client{
-		Transport: &errReaderTransport{},
-	})
+	client := paperless.NewClient("http://example.com", "token", resty.New().SetTransport(&errReaderTransport{}))
 	_, err := client.Search(t.Context(), domainSearchParams())
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "read response body") {
-		t.Errorf("expected 'read response body' error, got: %v", err)
+	if !strings.Contains(err.Error(), "execute request") {
+		t.Errorf("expected 'execute request' error, got: %v", err)
 	}
 }
 

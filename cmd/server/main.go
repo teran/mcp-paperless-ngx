@@ -13,18 +13,22 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
+	"resty.dev/v3"
 
 	"github.com/teran/mcp-paperless-ngx/application"
 	"github.com/teran/mcp-paperless-ngx/config"
+	"github.com/teran/mcp-paperless-ngx/domain"
 	"github.com/teran/mcp-paperless-ngx/handlers"
 	infra "github.com/teran/mcp-paperless-ngx/infrastructure/paperless"
 )
 
-// Build-time variables injected by goreleaser (via ldflags).
+// Build-time variables injected by goreleaser (via ldflags). These follow the
+// B2 convention: appName, appVersion, appCommitHash, appTimestamp.
 var (
-	version = "dev"
-	commit  = "none"    //nolint:gochecknoglobals
-	date    = "unknown" //nolint:gochecknoglobals
+	appName       = "mcp-paperless-ngx" //nolint:gochecknoglobals
+	appVersion    = "dev"               //nolint:gochecknoglobals
+	appCommitHash = "none"              //nolint:gochecknoglobals
+	appTimestamp  = "unknown"           //nolint:gochecknoglobals
 )
 
 func main() {
@@ -38,23 +42,23 @@ func main() {
 	}
 }
 
-// newSharedHTTPClient creates the shared HTTP client reused across requests.
-// CheckRedirect is set to http.ErrUseLastResponse to prevent credential
-// forwarding — the http.Client never follows redirects, so the token
-// cannot be leaked to an external URL via a 302 response from Paperless-ngx.
-func newSharedHTTPClient() *http.Client {
-	return &http.Client{ //nolint:exhaustruct
-		Timeout: 30 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-		Transport: &http.Transport{ //nolint:exhaustruct
+// newSharedHTTPClient creates the shared resty client reused across requests.
+// RedirectNoPolicy is set to prevent credential forwarding — the client never
+// follows redirects, so the token cannot be leaked to an external URL via a 302
+// response from Paperless-ngx. Timeouts, retries and connection pooling are
+// configured explicitly here (see G9).
+func newSharedHTTPClient() *resty.Client {
+	return resty.New().
+		SetTimeout(30 * time.Second).
+		SetRetryCount(2).
+		SetRetryWaitTime(200 * time.Millisecond).
+		SetRedirectPolicy(resty.RedirectNoPolicy()).
+		SetTransport(&http.Transport{ //nolint:exhaustruct
 			MaxIdleConns:       100,
 			IdleConnTimeout:    90 * time.Second,
 			DisableCompression: false,
 			DisableKeepAlives:  false,
-		},
-	}
+		})
 }
 
 // serverHandlers bundles the HTTP handlers for the main MCP server and the
@@ -66,15 +70,18 @@ type serverHandlers struct {
 
 // buildHandlers constructs the main MCP handler (including the full middleware
 // chain and the health-check endpoint) and the Prometheus metrics handler.
-func buildHandlers(cfg *config.Config, sharedHTTPClient *http.Client) serverHandlers {
-	// Create the MCP server instance.
+func buildHandlers(cfg *config.Config, sharedHTTPClient *resty.Client) serverHandlers {
+	// Create the MCP server instance. When logging is enabled, wire the SDK's
+	// slog logger into logrus (L7/N25) so SDK-level events are visible.
+	sdkLogger := slogAdapter()
 	srv := mcp.NewServer(&mcp.Implementation{ //nolint:exhaustruct
-		Name:    "mcp-paperless-ngx",
-		Version: version,
+		Name:    appName,
+		Version: appVersion,
 	}, &mcp.ServerOptions{ //nolint:exhaustruct
 		Capabilities: &mcp.ServerCapabilities{ //nolint:exhaustruct
 			Tools: &mcp.ToolCapabilities{ListChanged: false},
 		},
+		Logger: sdkLogger,
 	})
 
 	// Create Prometheus registry and metrics collectors.
@@ -95,24 +102,28 @@ func buildHandlers(cfg *config.Config, sharedHTTPClient *http.Client) serverHand
 	)
 
 	// Wrap with middlewares (outermost to innermost):
-	// recovery → metrics → rate limit → body limit → logging → token → client injection → MCP handler.
+	// recovery → request-id → metrics → rate limit → body limit → logging → token → client injection → MCP handler.
 	// RecoveryMiddleware is outermost so that any panic anywhere in the chain
 	// is caught and the server stays alive.
+	// RequestIDMiddleware generates a per-request request_id (reusing an inbound
+	// X-Request-ID) and threads it through the context (L9/G11).
 	// MetricsMiddleware tracks the active-requests gauge only (no body reads).
 	// RateLimitMiddleware is third because it is the cheapest check (no body reading).
 	// BodyLimitMiddleware bounds the body for everything after it.
 	handler := handlers.RecoveryMiddleware(
-		handlers.MetricsMiddleware(metrics)(
-			handlers.RateLimitMiddleware(handlers.RateLimiterConfig{
-				GlobalLimit:    rate.Limit(cfg.RateLimitGlobal),
-				GlobalBurst:    cfg.RateLimitGlobal * 2,
-				PerClientLimit: rate.Limit(cfg.RateLimitPerClient),
-				PerClientBurst: cfg.RateLimitPerClient * 2,
-			})(
-				handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
-					handlers.LoggingMiddleware(
-						handlers.TokenMiddleware(
-							injectClientMiddleware(cfg.PaperlessURL, sharedHTTPClient)(mcpHandler),
+		handlers.RequestIDMiddleware(
+			handlers.MetricsMiddleware(metrics)(
+				handlers.RateLimitMiddleware(handlers.RateLimiterConfig{
+					GlobalLimit:    rate.Limit(cfg.RateLimitGlobal),
+					GlobalBurst:    cfg.RateLimitGlobal * 2,
+					PerClientLimit: rate.Limit(cfg.RateLimitPerClient),
+					PerClientBurst: cfg.RateLimitPerClient * 2,
+				})(
+					handlers.BodyLimitMiddleware(handlers.DefaultMaxRequestBodySize)(
+						handlers.LoggingMiddleware(
+							handlers.TokenMiddleware(
+								injectClientMiddleware(cfg.PaperlessURL, sharedHTTPClient)(mcpHandler),
+							),
 						),
 					),
 				),
@@ -166,6 +177,19 @@ func buildServers(cfg *config.Config, h serverHandlers) (*http.Server, *http.Ser
 // until a shutdown signal or a fatal server error is received, then shuts both
 // servers down gracefully.
 func run(cfg *config.Config) error {
+	// Configure logging per L2-L4: gated by LOG_LEVEL (disabled by default),
+	// LOG_FILENAME override, LOG_FORMAT=json. When disabled, logrus is a no-op.
+	if err := setupLogging(cfg); err != nil {
+		return err
+	}
+
+	// B5/L6: when logging is enabled, the startup banner is the very first log
+	// line, using the build metadata embedded at build time (B2).
+	if cfg.LogLevel != "" {
+		logrus.Infof("Starting %s/%s (commit: %s; built at %s)",
+			appName, appVersion, appCommitHash, appTimestamp)
+	}
+
 	sharedHTTPClient := newSharedHTTPClient()
 
 	h := buildHandlers(cfg, sharedHTTPClient)
@@ -173,9 +197,10 @@ func run(cfg *config.Config) error {
 
 	logrus.WithField("url", handlers.SanitizeLog(cfg.PaperlessURL)).Info("paperless-ngx url")
 	logrus.WithFields(logrus.Fields{
-		"version": version,
-		"commit":  commit,
-		"built":   date,
+		"appName":      appName,
+		"appVersion":   appVersion,
+		"appCommit":    appCommitHash,
+		"appTimestamp": appTimestamp,
 	}).Info("server version")
 
 	// Channel to capture server errors (buffered to hold both if both fail).
@@ -222,7 +247,7 @@ func run(cfg *config.Config) error {
 
 // injectClientMiddleware creates the Paperless-ngx client and attaches
 // application services to the context.
-func injectClientMiddleware(paperlessURL string, sharedHTTPClient *http.Client) func(http.Handler) http.Handler {
+func injectClientMiddleware(paperlessURL string, sharedHTTPClient *resty.Client) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw := handlers.ClientFromContext(r.Context())
@@ -232,6 +257,9 @@ func injectClientMiddleware(paperlessURL string, sharedHTTPClient *http.Client) 
 			}
 
 			client := infra.NewClient(paperlessURL, raw, sharedHTTPClient)
+			// Tag outbound client logs with the request_id/session_id from the
+			// request context (L9/G11).
+			client.SetLogger(domain.WithSession(r.Context(), logrus.NewEntry(logrus.StandardLogger())))
 
 			// Build application services using adapters and store in context.
 			docSvc := application.NewDocumentService(client)

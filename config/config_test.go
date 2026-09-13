@@ -151,3 +151,46 @@ func TestLoad_Errors(t *testing.T) {
 		}
 	})
 }
+
+func TestLoad_Logging(t *testing.T) {
+	t.Run("logging env vars are loaded", func(t *testing.T) {
+		t.Setenv("PAPERLESS_URL", "http://paperless:8000")
+		t.Setenv("LOG_LEVEL", "debug")
+		t.Setenv("LOG_FILENAME", "/tmp/server.log")
+		t.Setenv("LOG_FORMAT", "json")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+
+		if cfg.LogLevel != "debug" {
+			t.Errorf("LogLevel = %q, want %q", cfg.LogLevel, "debug")
+		}
+		if cfg.LogFilename != "/tmp/server.log" {
+			t.Errorf("LogFilename = %q, want %q", cfg.LogFilename, "/tmp/server.log")
+		}
+		if cfg.LogFormat != "json" {
+			t.Errorf("LogFormat = %q, want %q", cfg.LogFormat, "json")
+		}
+	})
+
+	t.Run("logging env vars default to empty when unset", func(t *testing.T) {
+		t.Setenv("PAPERLESS_URL", "http://paperless:8000")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+
+		if cfg.LogLevel != "" {
+			t.Errorf("LogLevel = %q, want empty (logging disabled)", cfg.LogLevel)
+		}
+		if cfg.LogFilename != "" {
+			t.Errorf("LogFilename = %q, want empty", cfg.LogFilename)
+		}
+		if cfg.LogFormat != "" {
+			t.Errorf("LogFormat = %q, want empty", cfg.LogFormat)
+		}
+	})
+}
