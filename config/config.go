@@ -19,6 +19,9 @@ type Config struct {
 	RateLimitGlobal       int           `envconfig:"RATE_LIMIT_GLOBAL" default:"100"`
 	RateLimitPerClient    int           `envconfig:"RATE_LIMIT_PER_CLIENT" default:"10"`
 	WriteTimeout          time.Duration `envconfig:"WRITE_TIMEOUT" default:"300s"`
+	LogLevel              string        `envconfig:"LOG_LEVEL"`
+	LogFilename           string        `envconfig:"LOG_FILENAME"`
+	LogFormat             string        `envconfig:"LOG_FORMAT"`
 }
 
 // validate performs semantic validation on the loaded configuration.

@@ -5,33 +5,50 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/sirupsen/logrus"
+	"resty.dev/v3"
 
 	"github.com/teran/mcp-paperless-ngx/domain"
 )
 
 var ErrAPIClient = errors.New("API error")
 
+// maxResponseBodySize bounds the size of a single response body (100 MB) to
+// prevent memory exhaustion from oversized responses (e.g. a document with a
+// very large OCR text).
+const maxResponseBodySize = 100 << 20
+
 // Client is the Paperless-ngx HTTP client implementing domain repositories.
 type Client struct {
 	baseURL    string
 	authToken  string
-	httpClient *http.Client
+	httpClient *resty.Client
+	logger     *logrus.Entry
 }
 
-// NewClient creates a new Paperless-ngx API client with the given HTTP client.
-// The caller should provide an *http.Client with CheckRedirect set to prevent
-// credential forwarding, and a shared Transport for connection reuse.
-func NewClient(baseURL, authToken string, httpClient *http.Client) *Client {
+// NewClient creates a new Paperless-ngx API client with the given resty client.
+// The caller should provide a *resty.Client configured with RedirectNoPolicy to
+// prevent credential forwarding, and a shared Transport for connection reuse.
+func NewClient(baseURL, authToken string, httpClient *resty.Client) *Client {
 	return &Client{
 		baseURL:    baseURL,
 		authToken:  authToken,
 		httpClient: httpClient,
 	}
+}
+
+// SetLogger attaches a logger to the client. When set, the client emits a
+// per-request outbound log record (method, path, sizes, status, duration)
+// tagged with the request_id carried in the request context (see L9).
+func (c *Client) SetLogger(l *logrus.Entry) *Client {
+	c.logger = l
+	return c
 }
 
 // Search implements domain.DocumentRepository.
@@ -233,39 +250,75 @@ func (c *Client) doRequest(ctx context.Context, path string, query url.Values) (
 		return nil, fmt.Errorf("build URL: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+	req := c.httpClient.R().
+		SetContext(ctx).
+		SetHeader("Authorization", "Token "+c.authToken).
+		SetHeader("Accept", "application/json")
+
+	// Forward the request_id from context so server-side and client-side
+	// records can be matched across the wire (see L9).
+	if requestID := domain.RequestIDFromContext(ctx); requestID != "" {
+		req.SetHeader("X-Request-ID", requestID)
 	}
 
 	if query != nil {
-		req.URL.RawQuery = query.Encode()
+		req.SetQueryParamsFromValues(query)
 	}
 
-	req.Header.Set("Authorization", "Token "+c.authToken)
-	req.Header.Set("Accept", "application/json")
+	start := time.Now()
+	resp, err := req.Get(u)
+	duration := time.Since(start)
 
-	resp, err := c.httpClient.Do(req)
+	// Emit an outbound per-request log record carrying the same request_id.
+	if c.logger != nil {
+		domain.WithSession(ctx, c.logger).WithFields(logrus.Fields{
+			"method":    http.MethodGet,
+			"path":      path,
+			"in_bytes":  0,
+			"out_bytes": respSize(resp),
+			"status":    respStatus(resp),
+			"duration":  duration,
+			"error":     err,
+			"has_error": err != nil,
+		}).Debug("outbound http request")
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("execute request: %w", err)
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
 
-	// Limit response body to 100 MB to prevent memory exhaustion
-	// from oversized responses (e.g. a document with a very large OCR text).
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 100<<20))
-	if err != nil {
-		return nil, fmt.Errorf("read response body: %w", err)
+	body := resp.Bytes()
+
+	// Limit response body to 100 MB to prevent memory exhaustion from
+	// oversized responses (e.g. a document with a very large OCR text).
+	if len(body) > maxResponseBodySize {
+		return nil, fmt.Errorf("response body too large: %d bytes", len(body))
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		detail := extractErrorDetail(body, resp.StatusCode)
-		return nil, fmt.Errorf("API status=%d: %s: %w", resp.StatusCode, detail, ErrAPIClient)
+	if resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
+		detail := extractErrorDetail(body, resp.StatusCode())
+		return nil, fmt.Errorf("API status=%d: %s: %w", resp.StatusCode(), detail, ErrAPIClient)
 	}
 
 	return body, nil
+}
+
+// respSize returns the size of the response body, guarding against a nil
+// response (e.g. when the request itself failed).
+func respSize(resp *resty.Response) int64 {
+	if resp == nil {
+		return 0
+	}
+	return resp.Size()
+}
+
+// respStatus returns the HTTP status code of the response, guarding against a
+// nil response (e.g. when the request itself failed).
+func respStatus(resp *resty.Response) int {
+	if resp == nil {
+		return 0
+	}
+	return resp.StatusCode()
 }
 
 // extractErrorDetail extracts a human-readable detail from an error response body.

@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/teran/mcp-paperless-ngx/domain"
 )
 
 func TestTokenMiddleware(t *testing.T) { //nolint:gocognit,maintidx
@@ -834,4 +836,175 @@ func TestMaxBytesError(t *testing.T) {
 			t.Error("expected false for nil")
 		}
 	})
+}
+
+// ============================================================
+// RequestIDMiddleware, requestSource, mcpRequestArgs, newRequestID, outcomeForStatus
+// ============================================================
+
+func TestRequestIDMiddleware(t *testing.T) {
+	t.Parallel()
+
+	t.Run("reuses inbound X-Request-ID", func(t *testing.T) {
+		t.Parallel()
+
+		var captured string
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			captured = domain.RequestIDFromContext(r.Context())
+			w.WriteHeader(http.StatusOK)
+		})
+
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+		req.Header.Set("X-Request-ID", "inbound-id")
+		rr := httptest.NewRecorder()
+		RequestIDMiddleware(next).ServeHTTP(rr, req)
+
+		if captured != "inbound-id" {
+			t.Errorf("request_id = %q, want %q", captured, "inbound-id")
+		}
+	})
+
+	t.Run("generates a fresh id when absent", func(t *testing.T) {
+		t.Parallel()
+
+		var captured string
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			captured = domain.RequestIDFromContext(r.Context())
+			w.WriteHeader(http.StatusOK)
+		})
+
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+		rr := httptest.NewRecorder()
+		RequestIDMiddleware(next).ServeHTTP(rr, req)
+
+		if captured == "" {
+			t.Fatal("expected a generated request_id")
+		}
+	})
+
+	t.Run("captures Mcp-Session-Id into context", func(t *testing.T) {
+		t.Parallel()
+
+		var capturedSID string
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			capturedSID = domain.SessionIDFromContext(r.Context())
+			w.WriteHeader(http.StatusOK)
+		})
+
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+		req.Header.Set("Mcp-Session-Id", "sess-abc")
+		rr := httptest.NewRecorder()
+		RequestIDMiddleware(next).ServeHTTP(rr, req)
+
+		if capturedSID != "sess-abc" {
+			t.Errorf("session_id = %q, want %q", capturedSID, "sess-abc")
+		}
+	})
+}
+
+func TestNewRequestID(t *testing.T) {
+	t.Parallel()
+
+	id := newRequestID()
+	if id == "" {
+		t.Fatal("expected non-empty request id")
+	}
+	if other := newRequestID(); other == id {
+		t.Error("expected two generated ids to differ")
+	}
+}
+
+func TestRequestSource(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		headers    map[string]string
+		remoteAddr string
+		want       string
+	}{
+		{"x-real-ip alone", map[string]string{"X-Real-Ip": "10.1.1.1"}, "10.9.9.9:80", "10.1.1.1"},
+		{"xff alone", map[string]string{"X-Forwarded-For": "10.2.2.2, 10.3.3.3"}, "10.9.9.9:80", "10.2.2.2, 10.3.3.3"},
+		{"x-real-ip preferred over xff", map[string]string{"X-Real-Ip": "10.1.1.1", "X-Forwarded-For": "10.2.2.2"}, "10.9.9.9:80", "10.1.1.1,10.2.2.2"},
+		{"fallback remote addr strips port", nil, "10.6.6.6:8080", "10.6.6.6"},
+		{"fallback remote addr without port", nil, "10.7.7.7", "10.7.7.7"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+			for k, v := range tt.headers {
+				req.Header.Set(k, v)
+			}
+			req.RemoteAddr = tt.remoteAddr
+			if got := requestSource(req); got != tt.want {
+				t.Errorf("requestSource = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMCPRequestArgs(t *testing.T) {
+	t.Parallel()
+
+	t.Run("tools/call with arguments", func(t *testing.T) {
+		t.Parallel()
+		body := []byte(`{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_documents","arguments":{"query":"test"}},"id":"1"}`)
+		got := mcpRequestArgs(body)
+		if got == nil {
+			t.Fatal("expected non-nil args")
+		}
+		if s, ok := got.(string); !ok || s != `{"query":"test"}` {
+			t.Errorf("args = %v, want query string", got)
+		}
+	})
+
+	t.Run("non-tools/call returns nil", func(t *testing.T) {
+		t.Parallel()
+		body := []byte(`{"jsonrpc":"2.0","method":"initialize","params":{},"id":"1"}`)
+		if got := mcpRequestArgs(body); got != nil {
+			t.Errorf("expected nil, got %v", got)
+		}
+	})
+
+	t.Run("tools/call without arguments returns nil", func(t *testing.T) {
+		t.Parallel()
+		body := []byte(`{"jsonrpc":"2.0","method":"tools/call","params":{"name":"x"},"id":"1"}`)
+		if got := mcpRequestArgs(body); got != nil {
+			t.Errorf("expected nil, got %v", got)
+		}
+	})
+
+	t.Run("malformed body returns nil", func(t *testing.T) {
+		t.Parallel()
+		if got := mcpRequestArgs([]byte(`not json`)); got != nil {
+			t.Errorf("expected nil, got %v", got)
+		}
+	})
+
+	t.Run("empty body returns nil", func(t *testing.T) {
+		t.Parallel()
+		if got := mcpRequestArgs(nil); got != nil {
+			t.Errorf("expected nil, got %v", got)
+		}
+	})
+}
+
+func TestOutcomeForStatus(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		code int
+		want string
+	}{
+		{http.StatusOK, "success"},
+		{http.StatusNotFound, "client_error"},
+		{http.StatusInternalServerError, "server_error"},
+		{http.StatusContinue, "other"},
+	}
+	for _, tt := range tests {
+		if got := outcomeForStatus(tt.code); got != tt.want {
+			t.Errorf("outcomeForStatus(%d) = %q, want %q", tt.code, got, tt.want)
+		}
+	}
 }
