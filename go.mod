@@ -5,7 +5,7 @@ go 1.27.0
 require (
 	github.com/go-ozzo/ozzo-validation/v4 v4.4.1
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/modelcontextprotocol/go-sdk v1.7.0
+	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/sirupsen/logrus v1.10.2
 	golang.org/x/sync v0.23.0
